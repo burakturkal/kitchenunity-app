@@ -109,7 +109,12 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1' }) => {
                </h4>
                <ol className="text-xs space-y-3 text-slate-600 font-bold list-decimal list-inside">
                  <li>Open your form in <span className="text-slate-900">Forminator</span></li>
-                 <li>Go to <span className="text-slate-900">Integrations > Webhooks</span></li>
+                 <li>
+                  Go to <span className="text-slate-900">
+                    Integrations {'>'} Webhooks
+                  </span>
+                </li>
+
                  <li>Paste the URL above into the <span className="text-slate-900">Webhook URL</span> field</li>
                  <li>Ensure the method is set to <span className="text-slate-900">POST</span></li>
                  <li>Save and test your form!</li>
