@@ -46,10 +46,19 @@ export interface Address {
 
 export interface OrderLineItem {
   id: string;
+  productId: string;
   productName: string;
   sku: string;
   quantity: number;
   price: number;
+}
+
+export interface Attachment {
+  id: string;
+  name: string;
+  type: string;
+  data: string; // Base64 encoded file content
+  createdAt: string;
 }
 
 export interface PlannerEvent {
@@ -64,6 +73,7 @@ export interface PlannerEvent {
   assignedTo?: string;
   notes: string;
   status: PlannerEventStatus;
+  createdAt: string;
 }
 
 export interface CabinetStore {
@@ -101,6 +111,7 @@ export interface Order {
   taxRate: number;
   isNonTaxable: boolean;
   notes: string;
+  attachments?: Attachment[];
 }
 
 export interface Claim {
@@ -137,4 +148,5 @@ export interface InventoryItem {
   status: 'In Stock' | 'Low Stock' | 'Out of Stock';
   trackStock: boolean;
   description: string;
+  createdAt: string;
 }

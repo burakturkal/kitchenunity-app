@@ -65,7 +65,7 @@ export const MOCK_ORDERS: Order[] = [
     status: 'Completed', 
     createdAt: '2023-09-25',
     lineItems: [
-      { id: 'li-1', productName: 'Shaker Cabinet Base', sku: 'CAB-SHK-BS', quantity: 10, price: 450 }
+      { id: 'li-1', productId: 'inv-1', productName: 'Shaker Cabinet Base', sku: 'CAB-SHK-BS', quantity: 10, price: 450 }
     ],
     taxRate: 8.25,
     isNonTaxable: false,
@@ -89,34 +89,37 @@ export const MOCK_INVENTORY: InventoryItem[] = [
   {
     id: 'inv-1',
     storeId: 'store-1',
-    name: 'Product 1',
-    sku: '7',
-    price: 8,
+    name: 'Shaker Base Cabinet',
+    sku: 'CAB-SHK-BS',
+    price: 450,
     quantity: 70,
     status: 'In Stock',
     trackStock: true,
-    description: 'Basic cabinet hardware'
+    description: 'Basic cabinet hardware',
+    createdAt: '2023-05-10'
   },
   {
     id: 'inv-2',
     storeId: 'store-1',
-    name: 'Product 2',
-    sku: '4',
-    price: 5,
+    name: 'Premium Hinge Set',
+    sku: 'HNG-PRM',
+    price: 25,
     quantity: 6,
     status: 'Low Stock',
     trackStock: true,
-    description: 'Premium hinge'
+    description: 'Premium soft-close hinge',
+    createdAt: '2023-06-15'
   },
   {
     id: 'inv-3',
     storeId: 'store-1',
-    name: 'Product 22',
-    sku: '2',
-    price: 1,
+    name: 'Custom Oak Panel',
+    sku: 'PNL-OAK-CST',
+    price: 120,
     quantity: 4,
     status: 'Out of Stock',
     trackStock: true,
-    description: 'Drawer slide'
+    description: 'Solid oak side panel',
+    createdAt: '2023-08-22'
   }
 ];
