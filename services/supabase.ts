@@ -180,6 +180,31 @@ export const db = {
       return (data || []).map(mapToCamel);
     }
   },
+  inviteRequests: {
+    async create(payload: { email: string; storeId: string; requestedRole: string }) {
+      const { data, error } = await supabase.from('invite_requests').insert({
+        email: payload.email.toLowerCase(),
+        store_id: payload.storeId,
+        requested_role: payload.requestedRole
+      }).select();
+      if (error) throw error;
+      return mapToCamel(data?.[0]);
+    },
+    async listPending() {
+      const { data, error } = await supabase.from('invite_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []).map(mapToCamel);
+    },
+    async approve(id: string) {
+      const { error } = await supabase.from('invite_requests').update({ status: 'approved' }).eq('id', id);
+      if (error) throw error;
+    },
+    async getApprovedByEmail(email: string) {
+      const { data, error } = await supabase.from('invite_requests').select('*').eq('email', email.toLowerCase()).eq('status', 'approved').order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (error) throw error;
+      return mapToCamel(data);
+    }
+  },
   customers: {
     async list(storeId: string) {
       if (!storeId) throw new Error("Unauthorized: Tenant ID required.");

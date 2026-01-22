@@ -45,10 +45,12 @@ interface UserRow {
   status: 'Active' | 'Disabled';
 }
 
-interface PendingProfile {
+interface PendingInvite {
   id: string;
+  email: string;
   storeId?: string;
-  role?: string;
+  requestedRole?: string;
+  status?: string;
   createdAt?: string;
 }
 
@@ -74,10 +76,7 @@ const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInputEleme
 );
 
 const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, activeStore, stores = [], currentUserRole }) => {
-  const [users, setUsers] = useState<UserRow[]>([
-    { id: '1', name: 'Sarah Platform Admin', email: 'sarah@elitecabinets.com', role: 'Owner', status: 'Active' },
-    { id: '2', name: 'Mark Operator', email: 'mark@elitecabinets.com', role: 'Staff', status: 'Active' },
-  ]);
+  const [users, setUsers] = useState<UserRow[]>([]);
 
   const [copied, setCopied] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
@@ -86,11 +85,11 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
   const [storeName, setStoreName] = useState(activeStore?.name || '');
   const [storeDomain, setStoreDomain] = useState(activeStore?.domain || '');
   const [isInviteOpen, setIsInviteOpen] = useState(false);
-  const [inviteUserId, setInviteUserId] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('store_user');
   const [inviteStoreId, setInviteStoreId] = useState(storeId || '');
   const [isInviting, setIsInviting] = useState(false);
-  const [pendingProfiles, setPendingProfiles] = useState<PendingProfile[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [isPendingLoading, setIsPendingLoading] = useState(false);
   const [simData, setSimData] = useState({
     "name-1": "Dwayne",
@@ -116,10 +115,10 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
     const loadPending = async () => {
       setIsPendingLoading(true);
       try {
-        const pending = await db.profiles.listByRole('pending');
-        setPendingProfiles(pending as PendingProfile[]);
+        const pending = await db.inviteRequests.listPending();
+        setPendingInvites(pending as PendingInvite[]);
       } catch (err) {
-        console.error('Pending profiles load failed:', err);
+        console.error('Pending invites load failed:', err);
       } finally {
         setIsPendingLoading(false);
       }
@@ -191,8 +190,8 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
   };
 
   const handleInviteUser = async () => {
-    if (!inviteUserId.trim()) {
-      alert('User UID is required.');
+    if (!inviteEmail.trim()) {
+      alert('Email is required.');
       return;
     }
     const roleToUse = currentUserRole === UserRole.ADMIN ? inviteRole.trim() : 'pending';
@@ -204,17 +203,13 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
 
     setIsInviting(true);
     try {
-      await db.profiles.upsert({ id: inviteUserId.trim(), storeId: targetStoreId, role: roleToUse });
-      setUsers((prev) => [
-        { id: inviteUserId.trim(), name: 'User UID', email: inviteUserId.trim(), role: roleToUse, status: 'Active' },
-        ...prev
-      ]);
-      setInviteUserId('');
+      await db.inviteRequests.create({ email: inviteEmail.trim(), storeId: targetStoreId, requestedRole: roleToUse });
+      setInviteEmail('');
       setInviteRole('store_user');
       setIsInviteOpen(false);
       if (currentUserRole === UserRole.ADMIN) {
-        const pending = await db.profiles.listByRole('pending');
-        setPendingProfiles(pending as PendingProfile[]);
+        const pending = await db.inviteRequests.listPending();
+        setPendingInvites(pending as PendingInvite[]);
       }
     } catch (err: any) {
       console.error('Invite failed:', err);
@@ -224,15 +219,10 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
     }
   };
 
-  const handleApproveProfile = async (profile: PendingProfile) => {
-    const targetStoreId = profile.storeId || inviteStoreId || storeId;
-    if (!targetStoreId) {
-      alert('Store is required to approve.');
-      return;
-    }
+  const handleApproveInvite = async (invite: PendingInvite) => {
     try {
-      await db.profiles.upsert({ id: profile.id, storeId: targetStoreId, role: 'store_user' });
-      setPendingProfiles((prev) => prev.filter(p => p.id !== profile.id));
+      await db.inviteRequests.approve(invite.id);
+      setPendingInvites((prev) => prev.filter(p => p.id !== invite.id));
     } catch (err: any) {
       console.error('Approve failed:', err);
       alert(err?.message || 'Approve failed.');
@@ -579,26 +569,26 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
               <table className="w-full text-left">
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
-                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">User UID</th>
+                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Email</th>
                     <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Store</th>
                     <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {pendingProfiles.length === 0 && !isPendingLoading && (
+                  {pendingInvites.length === 0 && !isPendingLoading && (
                     <tr>
                       <td colSpan={3} className="px-8 py-6 text-xs text-slate-400 font-bold uppercase tracking-widest">No pending approvals</td>
                     </tr>
                   )}
-                  {pendingProfiles.map((profile) => {
-                    const storeName = stores.find(s => s.id === profile.storeId)?.name || 'Unassigned';
+                  {pendingInvites.map((invite) => {
+                    const storeName = stores.find(s => s.id === invite.storeId)?.name || 'Unassigned';
                     return (
-                      <tr key={profile.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-8 py-4 text-xs font-mono text-slate-500">{profile.id}</td>
+                      <tr key={invite.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-8 py-4 text-xs font-mono text-slate-500">{invite.email}</td>
                         <td className="px-8 py-4 text-sm font-bold text-slate-800">{storeName}</td>
                         <td className="px-8 py-4 text-right">
                           <button
-                            onClick={() => handleApproveProfile(profile)}
+                            onClick={() => handleApproveInvite(invite)}
                             className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700"
                           >
                             Approve
@@ -618,13 +608,13 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-lg rounded-[32px] shadow-2xl overflow-hidden border border-slate-200">
             <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
-              <h4 className="text-xl font-black text-slate-900 tracking-tighter uppercase">Assign User to Store</h4>
+              <h4 className="text-xl font-black text-slate-900 tracking-tighter uppercase">Invite User</h4>
               <button onClick={() => setIsInviteOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={20} /></button>
             </div>
             <div className="p-8 space-y-4">
               <div className="space-y-1">
-                <Label>User UID</Label>
-                <Input value={inviteUserId} onChange={(e) => setInviteUserId(e.target.value)} placeholder="Auth user UID" />
+                <Label>User Email</Label>
+                <Input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="user@company.com" />
               </div>
               {currentUserRole === UserRole.ADMIN ? (
                 <div className="space-y-1">
@@ -660,7 +650,7 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
                 </div>
               )}
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                User must already exist in Auth. Non-admin invites require approval.
+                Invites are created by email. Non-admin invites require approval.
               </p>
             </div>
             <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
@@ -670,7 +660,7 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
                 disabled={isInviting}
                 className="px-8 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-blue-500/20 disabled:opacity-60"
               >
-                {isInviting ? 'Saving...' : 'Assign User'}
+                {isInviting ? 'Saving...' : 'Send Invite'}
               </button>
             </div>
           </div>
