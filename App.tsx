@@ -428,6 +428,10 @@ const App: React.FC = () => {
 
   const handleSave = async () => {
     const displayType = modalType.replace('View ', '').toLowerCase();
+    if (!selectedItem) {
+      alert('Nothing to save.');
+      return;
+    }
     
     try {
       if (selectedItem?.id && !selectedItem.id.toString().startsWith('gen-')) {
@@ -454,6 +458,15 @@ const App: React.FC = () => {
           setInventory((prev: InventoryItem[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item));
         }
       } else {
+        if (displayType.includes('store')) {
+          const name = (selectedItem.name || '').trim();
+          const domain = (selectedItem.domain || '').trim();
+          if (!name || !domain) {
+            alert('Store name and store key are required.');
+            return;
+          }
+        }
+
         const newItemPayload = { ...selectedItem, storeId: effectiveStoreId };
         
         if (displayType.includes('lead')) {
@@ -487,7 +500,8 @@ const App: React.FC = () => {
       closeModal();
     } catch (err) {
       console.error('Save failed:', err);
-      alert('Persistence error.');
+      const message = (err as any)?.message || 'Persistence error.';
+      alert(message);
     }
   };
 
