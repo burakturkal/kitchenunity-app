@@ -49,6 +49,7 @@ const Layout: React.FC<LayoutProps> = ({
       // Supabase signOut triggers onAuthStateChange in StoreProvider
       // which handles the redirect to the login gate automatically.
       await supabase.auth.signOut();
+      window.location.reload();
     } catch (err) {
       console.error("Logout execution failed:", err);
       window.location.reload();
