@@ -101,7 +101,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     initApp();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) setSession(session);
+      setSession(session);
+      if (!session) {
+        setCurrentUser({ id: 'u-1', name: 'Sarah Platform Admin', role: UserRole.ADMIN, storeId: undefined });
+        setSelectedAdminStoreId('all');
+        setHostStoreId(null);
+      }
     });
 
     return () => subscription.unsubscribe();
