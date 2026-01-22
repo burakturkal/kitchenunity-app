@@ -160,7 +160,7 @@ export const db = {
       const { error } = await supabase.from('claims').delete().eq('id', id);
       if (error) throw error;
     }
-  }/*,
+  },
   planner: {
     async list(storeId: string) {
       if (!storeId) throw new Error("Tenant context missing.");
@@ -202,5 +202,5 @@ export const db = {
       const { error } = await supabase.from('planner_events').delete().eq('id', id);
       if (error) throw error;
     }
-  }*/
+  }
 };
