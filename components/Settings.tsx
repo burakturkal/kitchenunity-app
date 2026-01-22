@@ -20,91 +20,56 @@ import {
   CheckCircle,
   Zap,
   Play,
-
-  interface PendingProfile {
-    id: string;
-    storeId?: string;
-    role?: string;
-    createdAt?: string;
-  }
   X,
   Database,
   ArrowRight,
   RefreshCw,
   Code
 } from 'lucide-react';
-    const [pendingProfiles, setPendingProfiles] = useState<PendingProfile[]>([]);
-    const [isPendingLoading, setIsPendingLoading] = useState(false);
 import { UserRole, Lead, LeadStatus, CabinetStore } from '../types';
 import { db } from '../services/supabase';
 
 interface SettingsProps {
-
-    useEffect(() => {
-      if (currentUserRole !== UserRole.ADMIN) return;
-      const loadPending = async () => {
-        setIsPendingLoading(true);
-        try {
-          const pending = await db.profiles.listByRole('pending');
-          setPendingProfiles(pending as PendingProfile[]);
-        } catch (err) {
-          console.error('Pending profiles load failed:', err);
-        } finally {
-          setIsPendingLoading(false);
-        }
-      };
-      loadPending();
-    }, [currentUserRole]);
   storeId?: string;
   onLeadAdded?: (lead: Lead) => void;
   activeStore?: CabinetStore | null;
   stores?: CabinetStore[];
   currentUserRole?: UserRole;
 }
-      const roleToUse = currentUserRole === UserRole.ADMIN ? inviteRole.trim() : 'pending';
-      const targetStoreId = currentUserRole === UserRole.ADMIN ? inviteStoreId : storeId;
+
+interface UserRow {
+  id: string;
+  name: string;
+  email: string;
   role: string;
   status: 'Active' | 'Disabled';
 }
 
+interface PendingProfile {
+  id: string;
+  storeId?: string;
+  role?: string;
+  createdAt?: string;
+}
+
 const SectionHeader = ({ title, icon: Icon, children }: { title: string; icon: any; children?: React.ReactNode }) => (
   <div className="flex items-center gap-3 mb-8">
-        await db.profiles.upsert({ id: inviteUserId.trim(), storeId: targetStoreId, role: roleToUse });
+    <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600">
       <Icon size={20} />
-          { id: inviteUserId.trim(), name: 'User UID', email: inviteUserId.trim(), role: roleToUse, status: 'Active' },
+    </div>
     <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900">{title}</h3>
   </div>
 );
 
 const Label = ({ children }: { children?: React.ReactNode }) => (
-        if (currentUserRole === UserRole.ADMIN) {
-          const pending = await db.profiles.listByRole('pending');
-          setPendingProfiles(pending as PendingProfile[]);
-        }
   <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
     {children}
   </label>
 );
-
 const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) => (
-  <input 
-
-    const handleApproveProfile = async (profile: PendingProfile) => {
-      const targetStoreId = profile.storeId || inviteStoreId || storeId;
-      if (!targetStoreId) {
-        alert('Store is required to approve.');
-        return;
-      }
-      try {
-        await db.profiles.upsert({ id: profile.id, storeId: targetStoreId, role: 'store_user' });
-        setPendingProfiles((prev) => prev.filter(p => p.id !== profile.id));
-      } catch (err: any) {
-        console.error('Approve failed:', err);
-        alert(err?.message || 'Approve failed.');
-      }
-    };
-    {...props} 
-    className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300 ${className || ''}`} 
+  <input
+    {...props}
+    className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300 ${className || ''}`}
   />
 );
 
@@ -125,6 +90,8 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
   const [inviteRole, setInviteRole] = useState('store_user');
   const [inviteStoreId, setInviteStoreId] = useState(storeId || '');
   const [isInviting, setIsInviting] = useState(false);
+  const [pendingProfiles, setPendingProfiles] = useState<PendingProfile[]>([]);
+  const [isPendingLoading, setIsPendingLoading] = useState(false);
   const [simData, setSimData] = useState({
     "name-1": "Dwayne",
     "name-2": "Johnson",
@@ -143,6 +110,22 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
   useEffect(() => {
     setInviteStoreId(storeId || '');
   }, [storeId]);
+
+  useEffect(() => {
+    if (currentUserRole !== UserRole.ADMIN) return;
+    const loadPending = async () => {
+      setIsPendingLoading(true);
+      try {
+        const pending = await db.profiles.listByRole('pending');
+        setPendingProfiles(pending as PendingProfile[]);
+      } catch (err) {
+        console.error('Pending profiles load failed:', err);
+      } finally {
+        setIsPendingLoading(false);
+      }
+    };
+    loadPending();
+  }, [currentUserRole]);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(webhookUrl);
@@ -212,10 +195,7 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
       alert('User UID is required.');
       return;
     }
-    if (!inviteRole.trim()) {
-      alert('Role is required.');
-      return;
-    }
+    const roleToUse = currentUserRole === UserRole.ADMIN ? inviteRole.trim() : 'pending';
     const targetStoreId = currentUserRole === UserRole.ADMIN ? inviteStoreId : storeId;
     if (!targetStoreId) {
       alert('Store is required.');
@@ -224,19 +204,38 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
 
     setIsInviting(true);
     try {
-      await db.profiles.upsert({ id: inviteUserId.trim(), storeId: targetStoreId, role: inviteRole.trim() });
+      await db.profiles.upsert({ id: inviteUserId.trim(), storeId: targetStoreId, role: roleToUse });
       setUsers((prev) => [
-        { id: inviteUserId.trim(), name: 'User UID', email: inviteUserId.trim(), role: inviteRole.trim(), status: 'Active' },
+        { id: inviteUserId.trim(), name: 'User UID', email: inviteUserId.trim(), role: roleToUse, status: 'Active' },
         ...prev
       ]);
       setInviteUserId('');
       setInviteRole('store_user');
       setIsInviteOpen(false);
+      if (currentUserRole === UserRole.ADMIN) {
+        const pending = await db.profiles.listByRole('pending');
+        setPendingProfiles(pending as PendingProfile[]);
+      }
     } catch (err: any) {
       console.error('Invite failed:', err);
       alert(err?.message || 'Invite failed.');
     } finally {
       setIsInviting(false);
+    }
+  };
+
+  const handleApproveProfile = async (profile: PendingProfile) => {
+    const targetStoreId = profile.storeId || inviteStoreId || storeId;
+    if (!targetStoreId) {
+      alert('Store is required to approve.');
+      return;
+    }
+    try {
+      await db.profiles.upsert({ id: profile.id, storeId: targetStoreId, role: 'store_user' });
+      setPendingProfiles((prev) => prev.filter(p => p.id !== profile.id));
+    } catch (err: any) {
+      console.error('Approve failed:', err);
+      alert(err?.message || 'Approve failed.');
     }
   };
 
