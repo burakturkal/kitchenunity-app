@@ -1056,7 +1056,15 @@ const App: React.FC = () => {
       case 'accounting': return <Accounting orders={orders} />;
       case 'settings': {
         const currentStore = stores.find(s => s.id === effectiveStoreId) || null;
-        return <Settings storeId={effectiveStoreId} activeStore={currentStore} onLeadAdded={(newLead) => setLeads(prev => [newLead, ...prev])} />;
+        return (
+          <Settings
+            storeId={effectiveStoreId}
+            activeStore={currentStore}
+            stores={stores}
+            currentUserRole={currentUser.role}
+            onLeadAdded={(newLead) => setLeads(prev => [newLead, ...prev])}
+          />
+        );
       }
       default: return <Dashboard leads={leads} orders={orders} claims={claims} customers={customers} />;
     }

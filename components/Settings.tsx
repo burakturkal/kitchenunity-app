@@ -33,6 +33,8 @@ interface SettingsProps {
   storeId?: string;
   onLeadAdded?: (lead: Lead) => void;
   activeStore?: CabinetStore | null;
+  stores?: CabinetStore[];
+  currentUserRole?: UserRole;
 }
 
 interface UserRow {
@@ -65,8 +67,8 @@ const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInputEleme
   />
 );
 
-const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, activeStore }) => {
-  const [users] = useState<UserRow[]>([
+const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, activeStore, stores = [], currentUserRole }) => {
+  const [users, setUsers] = useState<UserRow[]>([
     { id: '1', name: 'Sarah Platform Admin', email: 'sarah@elitecabinets.com', role: 'Owner', status: 'Active' },
     { id: '2', name: 'Mark Operator', email: 'mark@elitecabinets.com', role: 'Staff', status: 'Active' },
   ]);
@@ -77,6 +79,11 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
   const [isSavingStore, setIsSavingStore] = useState(false);
   const [storeName, setStoreName] = useState(activeStore?.name || '');
   const [storeDomain, setStoreDomain] = useState(activeStore?.domain || '');
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [inviteUserId, setInviteUserId] = useState('');
+  const [inviteRole, setInviteRole] = useState('store_user');
+  const [inviteStoreId, setInviteStoreId] = useState(storeId || '');
+  const [isInviting, setIsInviting] = useState(false);
   const [simData, setSimData] = useState({
     "name-1": "Dwayne",
     "name-2": "Johnson",
@@ -91,6 +98,10 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
     setStoreName(activeStore?.name || '');
     setStoreDomain(activeStore?.domain || '');
   }, [activeStore?.id, activeStore?.name, activeStore?.domain]);
+
+  useEffect(() => {
+    setInviteStoreId(storeId || '');
+  }, [storeId]);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(webhookUrl);
@@ -152,6 +163,39 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
       alert('Store update failed.');
     } finally {
       setIsSavingStore(false);
+    }
+  };
+
+  const handleInviteUser = async () => {
+    if (!inviteUserId.trim()) {
+      alert('User UID is required.');
+      return;
+    }
+    if (!inviteRole.trim()) {
+      alert('Role is required.');
+      return;
+    }
+    const targetStoreId = currentUserRole === UserRole.ADMIN ? inviteStoreId : storeId;
+    if (!targetStoreId) {
+      alert('Store is required.');
+      return;
+    }
+
+    setIsInviting(true);
+    try {
+      await db.profiles.upsert({ id: inviteUserId.trim(), storeId: targetStoreId, role: inviteRole.trim() });
+      setUsers((prev) => [
+        { id: inviteUserId.trim(), name: 'User UID', email: inviteUserId.trim(), role: inviteRole.trim(), status: 'Active' },
+        ...prev
+      ]);
+      setInviteUserId('');
+      setInviteRole('store_user');
+      setIsInviteOpen(false);
+    } catch (err: any) {
+      console.error('Invite failed:', err);
+      alert(err?.message || 'Invite failed.');
+    } finally {
+      setIsInviting(false);
     }
   };
 
@@ -436,7 +480,10 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
       <div className="bg-white rounded-[40px] border border-slate-200 p-10 shadow-sm">
         <div className="flex items-center justify-between mb-8">
           <SectionHeader title="User & Access Settings" icon={Lock} />
-          <button className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:-translate-y-1 transition-all">
+          <button
+            onClick={() => setIsInviteOpen(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:-translate-y-1 transition-all"
+          >
             <UserPlus size={16} /> Invite User
           </button>
         </div>
@@ -482,6 +529,55 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
           </table>
         </div>
       </div>
+
+      {isInviteOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-[32px] shadow-2xl overflow-hidden border border-slate-200">
+            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+              <h4 className="text-xl font-black text-slate-900 tracking-tighter uppercase">Assign User to Store</h4>
+              <button onClick={() => setIsInviteOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={20} /></button>
+            </div>
+            <div className="p-8 space-y-4">
+              <div className="space-y-1">
+                <Label>User UID</Label>
+                <Input value={inviteUserId} onChange={(e) => setInviteUserId(e.target.value)} placeholder="Auth user UID" />
+              </div>
+              <div className="space-y-1">
+                <Label>Role</Label>
+                <Input value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} placeholder="store_user or super_admin" />
+              </div>
+              {currentUserRole === UserRole.ADMIN && (
+                <div className="space-y-1">
+                  <Label>Store</Label>
+                  <select
+                    value={inviteStoreId}
+                    onChange={(e) => setInviteStoreId(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 appearance-none"
+                  >
+                    <option value="">Select a store</option>
+                    {stores.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                User must already exist in Auth.
+              </p>
+            </div>
+            <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+              <button onClick={() => setIsInviteOpen(false)} className="px-6 py-2 text-xs font-bold text-slate-500 uppercase">Cancel</button>
+              <button
+                onClick={handleInviteUser}
+                disabled={isInviting}
+                className="px-8 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-blue-500/20 disabled:opacity-60"
+              >
+                {isInviting ? 'Saving...' : 'Assign User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

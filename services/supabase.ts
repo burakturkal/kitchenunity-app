@@ -164,6 +164,15 @@ export const db = {
       const { data, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
       if (error) throw error;
       return mapToCamel(data);
+    },
+    async upsert(profile: { id: string; storeId?: string; role: string }) {
+      const { data, error } = await supabase.from('profiles').upsert({
+        id: profile.id,
+        store_id: profile.storeId || null,
+        role: profile.role
+      }, { onConflict: 'id' }).select();
+      if (error) throw error;
+      return mapToCamel(data?.[0]);
     }
   },
   customers: {
