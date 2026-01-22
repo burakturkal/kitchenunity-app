@@ -173,6 +173,11 @@ export const db = {
       }, { onConflict: 'id' }).select();
       if (error) throw error;
       return mapToCamel(data?.[0]);
+    },
+    async listByRole(role: string) {
+      const { data, error } = await supabase.from('profiles').select('*').eq('role', role).order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []).map(mapToCamel);
     }
   },
   customers: {

@@ -20,41 +20,67 @@ import {
   CheckCircle,
   Zap,
   Play,
+
+  interface PendingProfile {
+    id: string;
+    storeId?: string;
+    role?: string;
+    createdAt?: string;
+  }
   X,
   Database,
   ArrowRight,
   RefreshCw,
   Code
 } from 'lucide-react';
+    const [pendingProfiles, setPendingProfiles] = useState<PendingProfile[]>([]);
+    const [isPendingLoading, setIsPendingLoading] = useState(false);
 import { UserRole, Lead, LeadStatus, CabinetStore } from '../types';
 import { db } from '../services/supabase';
 
 interface SettingsProps {
+
+    useEffect(() => {
+      if (currentUserRole !== UserRole.ADMIN) return;
+      const loadPending = async () => {
+        setIsPendingLoading(true);
+        try {
+          const pending = await db.profiles.listByRole('pending');
+          setPendingProfiles(pending as PendingProfile[]);
+        } catch (err) {
+          console.error('Pending profiles load failed:', err);
+        } finally {
+          setIsPendingLoading(false);
+        }
+      };
+      loadPending();
+    }, [currentUserRole]);
   storeId?: string;
   onLeadAdded?: (lead: Lead) => void;
   activeStore?: CabinetStore | null;
   stores?: CabinetStore[];
   currentUserRole?: UserRole;
 }
-
-interface UserRow {
-  id: string;
-  name: string;
-  email: string;
+      const roleToUse = currentUserRole === UserRole.ADMIN ? inviteRole.trim() : 'pending';
+      const targetStoreId = currentUserRole === UserRole.ADMIN ? inviteStoreId : storeId;
   role: string;
   status: 'Active' | 'Disabled';
 }
 
 const SectionHeader = ({ title, icon: Icon, children }: { title: string; icon: any; children?: React.ReactNode }) => (
   <div className="flex items-center gap-3 mb-8">
-    <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600">
+        await db.profiles.upsert({ id: inviteUserId.trim(), storeId: targetStoreId, role: roleToUse });
       <Icon size={20} />
-    </div>
+          { id: inviteUserId.trim(), name: 'User UID', email: inviteUserId.trim(), role: roleToUse, status: 'Active' },
     <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900">{title}</h3>
   </div>
 );
 
 const Label = ({ children }: { children?: React.ReactNode }) => (
+        if (currentUserRole === UserRole.ADMIN) {
+          const pending = await db.profiles.listByRole('pending');
+          setPendingProfiles(pending as PendingProfile[]);
+        }
   <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
     {children}
   </label>
@@ -62,6 +88,21 @@ const Label = ({ children }: { children?: React.ReactNode }) => (
 
 const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input 
+
+    const handleApproveProfile = async (profile: PendingProfile) => {
+      const targetStoreId = profile.storeId || inviteStoreId || storeId;
+      if (!targetStoreId) {
+        alert('Store is required to approve.');
+        return;
+      }
+      try {
+        await db.profiles.upsert({ id: profile.id, storeId: targetStoreId, role: 'store_user' });
+        setPendingProfiles((prev) => prev.filter(p => p.id !== profile.id));
+      } catch (err: any) {
+        console.error('Approve failed:', err);
+        alert(err?.message || 'Approve failed.');
+      }
+    };
     {...props} 
     className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300 ${className || ''}`} 
   />
@@ -528,6 +569,50 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
             </tbody>
           </table>
         </div>
+
+        {currentUserRole === UserRole.ADMIN && (
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Pending Approvals</h4>
+              {isPendingLoading && <span className="text-[10px] font-black uppercase text-slate-400">Loading...</span>}
+            </div>
+            <div className="border border-slate-100 rounded-[24px] overflow-hidden">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr>
+                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">User UID</th>
+                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Store</th>
+                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {pendingProfiles.length === 0 && !isPendingLoading && (
+                    <tr>
+                      <td colSpan={3} className="px-8 py-6 text-xs text-slate-400 font-bold uppercase tracking-widest">No pending approvals</td>
+                    </tr>
+                  )}
+                  {pendingProfiles.map((profile) => {
+                    const storeName = stores.find(s => s.id === profile.storeId)?.name || 'Unassigned';
+                    return (
+                      <tr key={profile.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-8 py-4 text-xs font-mono text-slate-500">{profile.id}</td>
+                        <td className="px-8 py-4 text-sm font-bold text-slate-800">{storeName}</td>
+                        <td className="px-8 py-4 text-right">
+                          <button
+                            onClick={() => handleApproveProfile(profile)}
+                            className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700"
+                          >
+                            Approve
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {isInviteOpen && (
@@ -542,17 +627,24 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
                 <Label>User UID</Label>
                 <Input value={inviteUserId} onChange={(e) => setInviteUserId(e.target.value)} placeholder="Auth user UID" />
               </div>
-              <div className="space-y-1">
-                <Label>Role</Label>
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 appearance-none"
-                >
-                  <option value="store_user">Store User</option>
-                  <option value="super_admin">Super Admin</option>
-                </select>
-              </div>
+              {currentUserRole === UserRole.ADMIN ? (
+                <div className="space-y-1">
+                  <Label>Role</Label>
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 appearance-none"
+                  >
+                    <option value="store_user">Store User</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Label>Role</Label>
+                  <div className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-400">Pending Approval</div>
+                </div>
+              )}
               {currentUserRole === UserRole.ADMIN && (
                 <div className="space-y-1">
                   <Label>Store</Label>
@@ -569,7 +661,7 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
                 </div>
               )}
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                User must already exist in Auth.
+                User must already exist in Auth. Non-admin invites require approval.
               </p>
             </div>
             <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
