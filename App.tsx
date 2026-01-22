@@ -25,7 +25,6 @@ import {
   OrderLineItem,
   CabinetStore
 } from './types';
-import { MOCK_LEADS, MOCK_ORDERS, MOCK_CUSTOMERS, MOCK_CLAIMS, MOCK_INVENTORY } from './services/mockData';
 import { db } from './services/supabase';
 import { 
   X, 
@@ -279,19 +278,20 @@ const App: React.FC = () => {
           db.inventory.list(effectiveStoreId)
         ]);
         
-        setLeads(l.length > 0 ? l : MOCK_LEADS);
-        setCustomers(c.length > 0 ? c : MOCK_CUSTOMERS);
-        setEvents(e.length > 0 ? e : []);
-        setClaims(cl.length > 0 ? cl : MOCK_CLAIMS);
-        setOrders(o.length > 0 ? o : MOCK_ORDERS);
-        setInventory(inv.length > 0 ? inv : MOCK_INVENTORY);
+        setLeads(l);
+        setCustomers(c);
+        setEvents(e);
+        setClaims(cl);
+        setOrders(o);
+        setInventory(inv);
       } catch (err) {
         console.error("Data fetch error:", err);
-        setLeads(MOCK_LEADS);
-        setCustomers(MOCK_CUSTOMERS);
-        setOrders(MOCK_ORDERS);
-        setClaims(MOCK_CLAIMS);
-        setInventory(MOCK_INVENTORY);
+        setLeads([]);
+        setCustomers([]);
+        setOrders([]);
+        setClaims([]);
+        setInventory([]);
+        setEvents([]);
       } finally {
         setIsLoading(false);
       }
@@ -907,6 +907,24 @@ const App: React.FC = () => {
     </div>
   );
 
+  const globalArr = useMemo(() => orders.reduce((sum, o) => sum + (o.amount || 0), 0), [orders]);
+  const ordersLast30Days = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    return orders.filter(o => {
+      const created = new Date(o.createdAt);
+      return !isNaN(created.getTime()) && created >= cutoff;
+    }).length;
+  }, [orders]);
+  const newStoresLast30Days = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    return stores.filter(s => {
+      const created = new Date(s.createdAt);
+      return !isNaN(created.getTime()) && created >= cutoff;
+    }).length;
+  }, [stores]);
+
   const renderContent = () => {
     if (isLoading) return <div className="p-20 text-center text-slate-400 font-black uppercase tracking-widest text-xs flex flex-col items-center gap-4"><Clock className="animate-spin" size={24} /> Syncing Records...</div>;
     
@@ -938,14 +956,14 @@ const App: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
              <div className="bg-slate-900 p-8 rounded-[40px] text-white space-y-4">
-                <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Global ARR</p>
-                <h3 className="text-4xl font-black tracking-tighter text-blue-400">$1.2M <span className="text-xs text-slate-500 font-bold tracking-normal text-white/50">USD</span></h3>
-                <p className="text-xs text-emerald-400 font-bold flex items-center gap-1"><ArrowRightCircle size={12} /> +18% MoM Growth</p>
+               <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Global Revenue</p>
+               <h3 className="text-4xl font-black tracking-tighter text-blue-400">${globalArr.toLocaleString()} <span className="text-xs text-slate-500 font-bold tracking-normal text-white/50">USD</span></h3>
+               <p className="text-xs text-emerald-400 font-bold flex items-center gap-1"><ArrowRightCircle size={12} /> Orders (30d): {ordersLast30Days}</p>
              </div>
              <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm space-y-4">
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Active Stores</p>
-                <h3 className="text-4xl font-black tracking-tighter text-slate-900">{stores.length} <span className="text-xs text-slate-400 font-bold tracking-normal italic uppercase">Tenants</span></h3>
-                <p className="text-xs text-blue-500 font-bold">2 Pending Provisioning</p>
+               <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Active Stores</p>
+               <h3 className="text-4xl font-black tracking-tighter text-slate-900">{stores.length} <span className="text-xs text-slate-400 font-bold tracking-normal italic uppercase">Tenants</span></h3>
+               <p className="text-xs text-blue-500 font-bold">New Stores (30d): {newStoresLast30Days}</p>
              </div>
              <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm space-y-4">
                 <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Support Load</p>

@@ -22,7 +22,7 @@ import {
   Bar,
   Cell
 } from 'recharts';
-import { Lead, Order, Claim, Customer } from '../types';
+import { Lead, Order, Claim, Customer, LeadStatus } from '../types';
 
 interface DashboardProps {
   leads: Lead[];
@@ -34,26 +34,39 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ leads, orders, claims, customers }) => {
   // Aggregate revenue by month for chart
   const revenueData = useMemo(() => {
-    const data = [
-      { name: 'Jan', total: 4000 },
-      { name: 'Feb', total: 3000 },
-      { name: 'Mar', total: 5000 },
-      { name: 'Apr', total: 4500 },
-      { name: 'May', total: 6000 },
-      { name: 'Jun', total: 5500 },
-    ];
-    // In a real app, we'd iterate over `orders` here
-    return data;
-  }, []);
+    const months = Array.from({ length: 6 }).map((_, idx) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - (5 - idx));
+      return { key: `${d.getFullYear()}-${d.getMonth()}`, name: d.toLocaleString('default', { month: 'short' }), total: 0 };
+    });
 
-  const leadSourceData = [
-    { name: 'Google', value: 45 },
-    { name: 'Social', value: 30 },
-    { name: 'Direct', value: 15 },
-    { name: 'Referral', value: 10 },
-  ];
+    const map = new Map(months.map(m => [m.key, m]));
+    orders.forEach(o => {
+      const created = new Date(o.createdAt);
+      if (isNaN(created.getTime())) return;
+      const key = `${created.getFullYear()}-${created.getMonth()}`;
+      const bucket = map.get(key);
+      if (bucket) bucket.total += o.amount || 0;
+    });
+
+    return months;
+  }, [orders]);
+
+  const leadSourceData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    leads.forEach(l => {
+      const src = l.source || 'Direct';
+      counts[src] = (counts[src] || 0) + 1;
+    });
+    const data = Object.entries(counts).map(([name, value]) => ({ name, value }));
+    return data.length > 0 ? data : [{ name: 'No Data', value: 0 }];
+  }, [leads]);
 
   const totalRevenue = orders.reduce((sum, o) => sum + o.amount, 0);
+  const activeLeads = leads.filter(l => l.status !== LeadStatus.CLOSED && l.status !== LeadStatus.ARCHIVED).length;
+  const completionRate = orders.length > 0
+    ? Math.round((orders.filter(o => o.status === 'Completed').length / orders.length) * 100)
+    : 0;
 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -80,8 +93,8 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, orders, claims, customers 
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Total Pipeline</p>
             <h4 className="text-4xl font-black text-slate-900 tracking-tighter">{customers.length + leads.length}</h4>
             <div className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-500">
-               <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-               14 Active Leads
+              <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+              {activeLeads} Active Leads
             </div>
           </div>
         </div>
@@ -101,10 +114,10 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, orders, claims, customers 
           <div className="absolute top-0 right-0 p-4 opacity-10">
              <Target size={120} />
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1">Monthly Goal</p>
-          <h4 className="text-4xl font-black text-white tracking-tighter">84%</h4>
+           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1">Completion Rate</p>
+           <h4 className="text-4xl font-black text-white tracking-tighter">{completionRate}%</h4>
           <div className="mt-4 w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-             <div className="h-full bg-blue-500 rounded-full w-[84%] shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
+             <div className="h-full bg-blue-500 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.5)]" style={{ width: `${completionRate}%` }} />
           </div>
         </div>
       </div>

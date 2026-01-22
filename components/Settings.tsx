@@ -544,7 +544,14 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
               </div>
               <div className="space-y-1">
                 <Label>Role</Label>
-                <Input value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} placeholder="store_user or super_admin" />
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 appearance-none"
+                >
+                  <option value="store_user">Store User</option>
+                  <option value="super_admin">Super Admin</option>
+                </select>
               </div>
               {currentUserRole === UserRole.ADMIN && (
                 <div className="space-y-1">
