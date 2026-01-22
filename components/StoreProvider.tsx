@@ -116,8 +116,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     e.preventDefault();
     setIsAuthLoading(true);
     try {
+      const email = authEmail.trim().toLowerCase();
+      if (!email) {
+        alert('Email is required.');
+        return;
+      }
       const { error } = await supabase.auth.signInWithOtp({
-        email: authEmail,
+        email,
         options: { 
           emailRedirectTo: window.location.origin,
           shouldCreateUser: true
