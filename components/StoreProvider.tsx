@@ -46,13 +46,43 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         // 2. Resolve domain to identify which store context we are in
         let resolvedId = resolveDomainToStoreId();
-        
+
         // 3. Load stores from the database
         const { data: allStores } = await supabase.from('stores').select('*');
         const mappedStores = (allStores || []).map(mapToCamel) as CabinetStore[];
         setStores(mappedStores);
 
-        // 4. Fallback logic for resolution
+        // 4. If logged in, resolve profile (role + store)
+        if (currentSession?.user?.id) {
+          const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentSession.user.id).maybeSingle();
+          const mappedProfile = mapToCamel(profile);
+          const profileStoreId = mappedProfile?.storeId || null;
+          const profileRole = mappedProfile?.role;
+
+          if (profileStoreId) {
+            resolvedId = profileStoreId;
+          }
+
+          if (profileRole === 'super_admin') {
+            setCurrentUser({
+              id: currentSession.user.id,
+              name: currentSession.user.email || 'Super Admin',
+              role: UserRole.ADMIN,
+              storeId: profileStoreId || undefined
+            });
+            setSelectedAdminStoreId('all');
+          } else {
+            setCurrentUser({
+              id: currentSession.user.id,
+              name: currentSession.user.email || 'Store User',
+              role: UserRole.CUSTOMER,
+              storeId: profileStoreId || undefined
+            });
+            if (profileStoreId) setSelectedAdminStoreId(profileStoreId);
+          }
+        }
+
+        // 5. Fallback logic for resolution
         if (!resolvedId && mappedStores.length > 0) {
           resolvedId = mappedStores[0].id; // Fallback to first available store for demo stability
         }

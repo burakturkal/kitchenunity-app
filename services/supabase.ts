@@ -28,12 +28,80 @@ export const resolveDomainToStoreId = () => {
   return null;
 };
 
+const mapStoreFromDb = (store: any) => {
+  const mapped = mapToCamel(store) || {};
+  return {
+    id: mapped.id,
+    name: mapped.name || 'Unnamed Store',
+    domain: mapped.storeKey || mapped.domain || '',
+    ownerEmail: mapped.ownerEmail || 'owner@kitchenunity.com',
+    status: mapped.status || 'active',
+    createdAt: mapped.createdAt || new Date().toISOString()
+  };
+};
+
+const mapCustomerFromDb = (customer: any) => {
+  const mapped = mapToCamel(customer) || {};
+  return {
+    id: mapped.id,
+    storeId: mapped.storeId,
+    firstName: mapped.firstName || '',
+    lastName: mapped.lastName || '',
+    email: mapped.email || '',
+    phone: mapped.phone || '',
+    notes: mapped.notes || '',
+    createdAt: mapped.createdAt || new Date().toISOString(),
+    shippingAddress: {
+      address1: '',
+      address2: '',
+      city: '',
+      state: '',
+      zip: '',
+      country: 'US'
+    },
+    billingDifferent: false
+  };
+};
+
+const mapClaimFromDb = (claim: any) => {
+  const mapped = mapToCamel(claim) || {};
+  return {
+    id: mapped.id,
+    storeId: mapped.storeId,
+    customerId: mapped.customerId,
+    issue: mapped.issue || '',
+    status: mapped.status || 'Open',
+    createdAt: mapped.createdAt || new Date().toISOString(),
+    notes: mapped.notes || ''
+  };
+};
+
+const mapLeadFromDb = (lead: any) => {
+  const mapped = mapToCamel(lead) || {};
+  const nameParts = (mapped.name || '').trim().split(' ').filter(Boolean);
+  const firstName = nameParts.shift() || '';
+  const lastName = nameParts.join(' ');
+  return {
+    id: mapped.id,
+    storeId: mapped.storeId,
+    firstName,
+    lastName,
+    phone: mapped.phone || '',
+    email: mapped.email || '',
+    message: mapped.message || '',
+    source: mapped.source || '',
+    createdAt: mapped.createdAt || new Date().toISOString(),
+    updatedAt: mapped.updatedAt || mapped.createdAt || new Date().toISOString(),
+    status: mapped.status || 'New'
+  };
+};
+
 export const db = {
   stores: {
     async list() {
       const { data, error } = await supabase.from('stores').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      return (data || []).map(mapToCamel);
+      return (data || []).map(mapStoreFromDb);
     },
     async create(store: any) {
       const { data, error } = await supabase.from('stores').insert([{
@@ -41,7 +109,7 @@ export const db = {
         store_key: store.domain || store.storeKey
       }]).select();
       if (error) throw error;
-      return mapToCamel(data[0]);
+      return mapStoreFromDb(data[0]);
     },
     async update(id: string, store: any) {
       const { error } = await supabase.from('stores').update({
@@ -62,7 +130,7 @@ export const db = {
       if (storeId !== 'all') query = query.eq('store_id', storeId);
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
-      return (data || []).map(mapToCamel);
+      return (data || []).map(mapLeadFromDb);
     },
     async create(lead: any) {
       const { data, error } = await supabase.from('leads').insert([{
@@ -70,12 +138,11 @@ export const db = {
         name: `${lead.firstName} ${lead.lastName}`.trim(),
         email: lead.email,
         phone: lead.phone,
-        message: lead.message,
         source: lead.source,
         status: lead.status
       }]).select();
       if (error) throw error;
-      return mapToCamel(data[0]);
+      return mapLeadFromDb(data[0]);
     },
     async update(id: string, lead: any) {
       const { error } = await supabase.from('leads').update({
@@ -83,7 +150,6 @@ export const db = {
         email: lead.email,
         phone: lead.phone,
         status: lead.status,
-        message: lead.message,
         source: lead.source
       }).eq('id', id);
       if (error) throw error;
@@ -93,6 +159,13 @@ export const db = {
       if (error) throw error;
     }
   },
+  profiles: {
+    async getById(id: string) {
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
+      if (error) throw error;
+      return mapToCamel(data);
+    }
+  },
   customers: {
     async list(storeId: string) {
       if (!storeId) throw new Error("Unauthorized: Tenant ID required.");
@@ -100,7 +173,7 @@ export const db = {
       if (storeId !== 'all') query = query.eq('store_id', storeId);
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
-      return (data || []).map(mapToCamel);
+      return (data || []).map(mapCustomerFromDb);
     },
     async create(customer: any) {
       const { data, error } = await supabase.from('customers').insert([{
@@ -112,7 +185,7 @@ export const db = {
         notes: customer.notes
       }]).select();
       if (error) throw error;
-      return mapToCamel(data[0]);
+      return mapCustomerFromDb(data[0]);
     },
     async update(id: string, customer: any) {
       const { error } = await supabase.from('customers').update({
@@ -136,7 +209,7 @@ export const db = {
       if (storeId !== 'all') query = query.eq('store_id', storeId);
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
-      return (data || []).map(mapToCamel);
+      return (data || []).map(mapClaimFromDb);
     },
     async create(claim: any) {
       const { data, error } = await supabase.from('claims').insert([{
@@ -146,7 +219,7 @@ export const db = {
         status: claim.status
       }]).select();
       if (error) throw error;
-      return mapToCamel(data[0]);
+      return mapClaimFromDb(data[0]);
     },
     async update(id: string, claim: any) {
       const { error } = await supabase.from('claims').update({
@@ -200,6 +273,90 @@ export const db = {
     },
     async delete(id: string) {
       const { error } = await supabase.from('planner_events').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+  orders: {
+    async list(storeId: string) {
+      if (!storeId) throw new Error("Tenant context missing.");
+      let query = supabase.from('orders').select('*');
+      if (storeId !== 'all') query = query.eq('store_id', storeId);
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []).map(mapToCamel);
+    },
+    async create(order: any) {
+      const { data, error } = await supabase.from('orders').insert([{
+        store_id: order.storeId,
+        customer_id: order.customerId,
+        amount: order.amount,
+        status: order.status,
+        tracking_number: order.trackingNumber,
+        line_items: order.lineItems,
+        tax_rate: order.taxRate,
+        is_non_taxable: order.isNonTaxable,
+        notes: order.notes,
+        attachments: order.attachments
+      }]).select();
+      if (error) throw error;
+      return mapToCamel(data[0]);
+    },
+    async update(id: string, order: any) {
+      const { error } = await supabase.from('orders').update({
+        customer_id: order.customerId,
+        amount: order.amount,
+        status: order.status,
+        tracking_number: order.trackingNumber,
+        line_items: order.lineItems,
+        tax_rate: order.taxRate,
+        is_non_taxable: order.isNonTaxable,
+        notes: order.notes,
+        attachments: order.attachments
+      }).eq('id', id);
+      if (error) throw error;
+    },
+    async delete(id: string) {
+      const { error } = await supabase.from('orders').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+  inventory: {
+    async list(storeId: string) {
+      if (!storeId) throw new Error("Tenant context missing.");
+      let query = supabase.from('inventory').select('*');
+      if (storeId !== 'all') query = query.eq('store_id', storeId);
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []).map(mapToCamel);
+    },
+    async create(item: any) {
+      const { data, error } = await supabase.from('inventory').insert([{
+        store_id: item.storeId,
+        name: item.name,
+        sku: item.sku,
+        quantity: item.quantity,
+        price: item.price,
+        status: item.status,
+        track_stock: item.trackStock,
+        description: item.description
+      }]).select();
+      if (error) throw error;
+      return mapToCamel(data[0]);
+    },
+    async update(id: string, item: any) {
+      const { error } = await supabase.from('inventory').update({
+        name: item.name,
+        sku: item.sku,
+        quantity: item.quantity,
+        price: item.price,
+        status: item.status,
+        track_stock: item.trackStock,
+        description: item.description
+      }).eq('id', id);
+      if (error) throw error;
+    },
+    async delete(id: string) {
+      const { error } = await supabase.from('inventory').delete().eq('id', id);
       if (error) throw error;
     }
   }

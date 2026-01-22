@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building2, 
   Mail, 
@@ -26,11 +26,13 @@ import {
   RefreshCw,
   Code
 } from 'lucide-react';
-import { UserRole, Lead, LeadStatus } from '../types';
+import { UserRole, Lead, LeadStatus, CabinetStore } from '../types';
+import { db } from '../services/supabase';
 
 interface SettingsProps {
   storeId?: string;
   onLeadAdded?: (lead: Lead) => void;
+  activeStore?: CabinetStore | null;
 }
 
 interface UserRow {
@@ -63,7 +65,7 @@ const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInputEleme
   />
 );
 
-const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded }) => {
+const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, activeStore }) => {
   const [users] = useState<UserRow[]>([
     { id: '1', name: 'Sarah Platform Admin', email: 'sarah@elitecabinets.com', role: 'Owner', status: 'Active' },
     { id: '2', name: 'Mark Operator', email: 'mark@elitecabinets.com', role: 'Staff', status: 'Active' },
@@ -72,6 +74,9 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded })
   const [copied, setCopied] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationStep, setSimulationStep] = useState(1);
+  const [isSavingStore, setIsSavingStore] = useState(false);
+  const [storeName, setStoreName] = useState(activeStore?.name || '');
+  const [storeDomain, setStoreDomain] = useState(activeStore?.domain || '');
   const [simData, setSimData] = useState({
     "name-1": "Dwayne",
     "name-2": "Johnson",
@@ -81,6 +86,11 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded })
   });
 
   const webhookUrl = `https://api.cabopspro.com/hooks/forminator?storeId=${storeId}`;
+
+  useEffect(() => {
+    setStoreName(activeStore?.name || '');
+    setStoreDomain(activeStore?.domain || '');
+  }, [activeStore?.id, activeStore?.name, activeStore?.domain]);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(webhookUrl);
@@ -110,9 +120,39 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded })
         updatedAt: new Date().toISOString(),
       };
       
-      if (onLeadAdded) onLeadAdded(newLead);
-      setSimulationStep(3);
+      (async () => {
+        try {
+          const saved = await db.leads.create(newLead);
+          if (onLeadAdded) onLeadAdded(saved as any);
+          setSimulationStep(3);
+        } catch (err) {
+          console.error('Lead simulation save failed:', err);
+          alert('Lead simulation failed to save.');
+          setSimulationStep(1);
+        }
+      })();
     }, 1500);
+  };
+
+  const handleSaveStoreIdentity = async () => {
+    if (!activeStore?.id) {
+      alert('No active store selected.');
+      return;
+    }
+    if (!storeName || !storeDomain) {
+      alert('Please provide a store name and store key.');
+      return;
+    }
+    setIsSavingStore(true);
+    try {
+      await db.stores.update(activeStore.id, { name: storeName, domain: storeDomain });
+      alert('Store identity saved.');
+    } catch (err) {
+      console.error('Store identity save failed:', err);
+      alert('Store update failed.');
+    } finally {
+      setIsSavingStore(false);
+    }
   };
 
   return (
@@ -313,7 +353,11 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded })
           <div className="space-y-6">
             <div>
               <Label>Store Name</Label>
-              <Input defaultValue="Elite Kitchen Cabinets" />
+              <Input value={storeName} onChange={(e) => setStoreName(e.target.value)} placeholder="Store Name" />
+            </div>
+            <div>
+              <Label>Store Key (URL Slug)</Label>
+              <Input value={storeDomain} onChange={(e) => setStoreDomain(e.target.value)} placeholder="store-key" />
             </div>
             <div>
               <Label>Business Type</Label>
@@ -351,8 +395,12 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded })
           </div>
         </div>
         <div className="mt-10 pt-10 border-t border-slate-100 flex justify-end">
-          <button className="flex items-center gap-2 px-10 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:-translate-y-1 transition-all shadow-xl shadow-slate-900/20">
-            <Save size={16} /> Save Store Identity
+          <button
+            onClick={handleSaveStoreIdentity}
+            disabled={isSavingStore}
+            className="flex items-center gap-2 px-10 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:-translate-y-1 transition-all shadow-xl shadow-slate-900/20 disabled:opacity-60"
+          >
+            <Save size={16} /> {isSavingStore ? 'Saving...' : 'Save Store Identity'}
           </button>
         </div>
       </div>

@@ -270,19 +270,21 @@ const App: React.FC = () => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [l, c, e, cl] = await Promise.all([
+        const [l, c, e, cl, o, inv] = await Promise.all([
           db.leads.list(effectiveStoreId),
           db.customers.list(effectiveStoreId),
           db.planner.list(effectiveStoreId),
-          db.claims.list(effectiveStoreId)
+          db.claims.list(effectiveStoreId),
+          db.orders.list(effectiveStoreId),
+          db.inventory.list(effectiveStoreId)
         ]);
         
         setLeads(l.length > 0 ? l : MOCK_LEADS);
         setCustomers(c.length > 0 ? c : MOCK_CUSTOMERS);
         setEvents(e.length > 0 ? e : []);
         setClaims(cl.length > 0 ? cl : MOCK_CLAIMS);
-        setOrders(MOCK_ORDERS);
-        setInventory(MOCK_INVENTORY);
+        setOrders(o.length > 0 ? o : MOCK_ORDERS);
+        setInventory(inv.length > 0 ? inv : MOCK_INVENTORY);
       } catch (err) {
         console.error("Data fetch error:", err);
         setLeads(MOCK_LEADS);
@@ -444,6 +446,12 @@ const App: React.FC = () => {
         } else if (displayType.includes('store')) {
           await db.stores.update(selectedItem.id, selectedItem);
           setStores((prev: CabinetStore[]) => prev.map((s) => s.id === selectedItem.id ? { ...s, ...selectedItem } : s));
+        } else if (displayType.includes('order') || displayType.includes('quote') || displayType.includes('invoice') || displayType.includes('sale')) {
+          await db.orders.update(selectedItem.id, selectedItem);
+          setOrders((prev: Order[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item));
+        } else if (displayType.includes('inventory')) {
+          await db.inventory.update(selectedItem.id, selectedItem);
+          setInventory((prev: InventoryItem[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item));
         }
       } else {
         const newItemPayload = { ...selectedItem, storeId: effectiveStoreId };
@@ -463,6 +471,12 @@ const App: React.FC = () => {
         } else if (displayType.includes('store')) {
           const saved = await db.stores.create(newItemPayload);
           setStores((prev: CabinetStore[]) => [saved as any, ...prev]);
+        } else if (displayType.includes('order') || displayType.includes('quote') || displayType.includes('invoice') || displayType.includes('sale')) {
+          const saved = await db.orders.create(newItemPayload);
+          setOrders((prev: Order[]) => [saved as any, ...prev]);
+        } else if (displayType.includes('inventory')) {
+          const saved = await db.inventory.create(newItemPayload);
+          setInventory((prev: InventoryItem[]) => [saved as any, ...prev]);
         } else {
           const mockId = `gen-${Date.now()}`;
           const mockItem = { ...selectedItem, id: mockId, createdAt: new Date().toISOString() };
@@ -497,6 +511,12 @@ const App: React.FC = () => {
       } else if (t.includes('store')) {
         await db.stores.delete(id);
         setStores((prev: CabinetStore[]) => prev.filter((s) => s.id !== id));
+      } else if (['order', 'quote', 'invoice', 'sale'].includes(t)) {
+        await db.orders.delete(id);
+        setOrders((prev: Order[]) => prev.filter((o) => o.id !== id));
+      } else if (t.includes('inventory')) {
+        await db.inventory.delete(id);
+        setInventory((prev: InventoryItem[]) => prev.filter((i) => i.id !== id));
       } else {
         if (['order', 'quote', 'invoice', 'sale'].includes(t)) setOrders((prev: Order[]) => prev.filter((o) => o.id !== id));
         else if (t.includes('inventory')) setInventory((prev: InventoryItem[]) => prev.filter((i) => i.id !== id));
@@ -533,9 +553,19 @@ const App: React.FC = () => {
     }
   };
 
-  const handleConvertQuote = (quote: Order) => {
+  const handleConvertQuote = async (quote: Order) => {
     if (!window.confirm(`Confirm order placement for Quote #${quote.id.slice(-6)}?`)) return;
-    setOrders((prev: Order[]) => prev.map((o) => o.id === quote.id ? { ...o, status: 'Processing' } : o));
+    const updated = { ...quote, status: 'Processing' };
+    try {
+      if (quote.id && !quote.id.toString().startsWith('gen-')) {
+        await db.orders.update(quote.id, updated);
+      }
+      setOrders((prev: Order[]) => prev.map((o) => o.id === quote.id ? updated : o));
+    } catch (err) {
+      console.error('Quote conversion failed:', err);
+      alert('Conversion failure.');
+      return;
+    }
     setActiveTab('sales-orders');
   };
 
@@ -1010,7 +1040,10 @@ const App: React.FC = () => {
       );
       case 'reports': return <Reports leads={leads} orders={orders} claims={claims} />;
       case 'accounting': return <Accounting orders={orders} />;
-      case 'settings': return <Settings storeId={effectiveStoreId} onLeadAdded={(newLead) => setLeads(prev => [newLead, ...prev])} />;
+      case 'settings': {
+        const currentStore = stores.find(s => s.id === effectiveStoreId) || null;
+        return <Settings storeId={effectiveStoreId} activeStore={currentStore} onLeadAdded={(newLead) => setLeads(prev => [newLead, ...prev])} />;
+      }
       default: return <Dashboard leads={leads} orders={orders} claims={claims} customers={customers} />;
     }
   };
