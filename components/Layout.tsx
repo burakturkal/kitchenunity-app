@@ -76,16 +76,16 @@ const Layout: React.FC<LayoutProps> = ({
   }, [selectedAdminStoreId, stores]);
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
-      <aside className={`${isSidebarOpen ? 'w-72' : 'w-24'} transition-all duration-500 bg-slate-900 flex flex-col z-30 shadow-2xl relative`}>
-        <div className="p-8 flex items-center gap-4 mb-4">
-          <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/40">
-            <Building2 className="text-white" size={24} />
+    <div className="flex h-screen bg-white overflow-hidden font-sans">
+      <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} transition-all duration-500 bg-white border-r border-slate-200 flex flex-col z-30 shadow-sm relative`}>
+        <div className="p-6 flex items-center gap-3 mb-2">
+          <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/30">
+            <Building2 className="text-white" size={20} />
           </div>
           {isSidebarOpen && (
             <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-500">
-              <span className="font-black text-xl tracking-tighter text-white leading-none">Kitchen<span className="text-blue-500">Unity</span></span>
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+              <span className="font-black text-lg tracking-tight text-slate-900 leading-none">Kitchen<span className="text-blue-600">Unity</span></span>
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">
                 {currentUser.role === UserRole.ADMIN ? 'Global Control' : 'Operations ERP'}
               </span>
             </div>
@@ -107,14 +107,14 @@ const Layout: React.FC<LayoutProps> = ({
                       setActiveTab(item.id);
                     }
                   }}
-                  className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all group ${
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group border ${
                     isSelected && !item.subItems
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 translate-x-1' 
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                      ? 'bg-blue-50 text-blue-700 border-blue-100 shadow-sm' 
+                      : 'text-slate-600 border-transparent hover:bg-slate-100 hover:text-slate-900'
                   }`}
                 >
-                  <item.icon size={20} className={isSelected && !item.subItems ? 'text-white' : 'group-hover:text-blue-400'} />
-                  {isSidebarOpen && <span className="font-bold text-sm tracking-tight">{item.label}</span>}
+                  <item.icon size={18} className={isSelected && !item.subItems ? 'text-blue-600' : 'group-hover:text-blue-600'} />
+                  {isSidebarOpen && <span className="font-semibold text-sm tracking-tight">{item.label}</span>}
                   {isSidebarOpen && item.subItems && (
                     <div className="ml-auto">
                       {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -128,8 +128,8 @@ const Layout: React.FC<LayoutProps> = ({
                       <button
                         key={sub.id}
                         onClick={() => setActiveTab(sub.id)}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                          activeTab === sub.id ? 'bg-slate-800 text-blue-400' : 'text-slate-500 hover:text-slate-300'
+                        className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                          activeTab === sub.id ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                         }`}
                       >
                         <sub.icon size={14} />
@@ -143,27 +143,27 @@ const Layout: React.FC<LayoutProps> = ({
           })}
         </nav>
 
-        <div className="p-6 border-t border-slate-800/50 space-y-4">
+        <div className="p-5 border-t border-slate-200 space-y-3">
           {isSidebarOpen && (
-            <div className="grid grid-cols-3 gap-1 mb-4 p-1 bg-slate-800 rounded-lg">
+            <div className="grid grid-cols-3 gap-1 mb-4 p-1 bg-slate-100 rounded-lg">
               <button 
                 onClick={() => onRoleSwitch(UserRole.ADMIN)} 
                 title="SaaS Administrator"
-                className={`text-[9px] p-1.5 rounded font-black uppercase tracking-tighter ${currentUser.role === UserRole.ADMIN ? 'bg-slate-700 text-blue-400' : 'text-slate-500'}`}
+                className={`text-[9px] p-1.5 rounded font-black uppercase tracking-tighter ${currentUser.role === UserRole.ADMIN ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500'}`}
               >
                 Admin
               </button>
               <button 
                 onClick={() => onRoleSwitch(UserRole.CUSTOMER)} 
                 title="Shop Owner"
-                className={`text-[9px] p-1.5 rounded font-black uppercase tracking-tighter ${currentUser.role === UserRole.CUSTOMER ? 'bg-slate-700 text-blue-400' : 'text-slate-500'}`}
+                className={`text-[9px] p-1.5 rounded font-black uppercase tracking-tighter ${currentUser.role === UserRole.CUSTOMER ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500'}`}
               >
                 Shop
               </button>
               <button 
                 onClick={() => onRoleSwitch(UserRole.EMPLOYEE)} 
                 title="Store Staff"
-                className={`text-[9px] p-1.5 rounded font-black uppercase tracking-tighter ${currentUser.role === UserRole.EMPLOYEE ? 'bg-slate-700 text-blue-400' : 'text-slate-500'}`}
+                className={`text-[9px] p-1.5 rounded font-black uppercase tracking-tighter ${currentUser.role === UserRole.EMPLOYEE ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500'}`}
               >
                 Staff
               </button>
@@ -171,37 +171,37 @@ const Layout: React.FC<LayoutProps> = ({
           )}
           <button 
             onClick={handleLogout} 
-            className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all group"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all group"
           >
             <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
             {isSidebarOpen && <span className="font-bold text-sm tracking-tight">Logout</span>}
           </button>
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="w-full flex items-center gap-4 px-4 py-3 text-slate-500 hover:text-white transition-colors">
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="w-full flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:text-slate-900 transition-colors">
             {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
             {isSidebarOpen && <span className="text-xs font-bold uppercase tracking-widest">Collapse View</span>}
           </button>
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-20 bg-white border-b border-slate-200 px-10 flex items-center justify-between sticky top-0 z-20">
+      <div className="flex-1 flex flex-col min-w-0 bg-white">
+        <header className="h-[72px] bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-6">
             <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter">
                {currentUser.role === UserRole.ADMIN && activeTab === 'dashboard' ? 'Platform Management' : activeTab.replace('-', ' ')}
             </h2>
 
             {currentUser.role === UserRole.ADMIN && setSelectedAdminStoreId && (
-              <div className="hidden lg:flex items-center gap-3 bg-slate-900 rounded-2xl px-4 py-2 shadow-lg border border-slate-800">
-                <Globe className="text-blue-400" size={16} />
+              <div className="hidden lg:flex items-center gap-3 bg-white rounded-2xl px-4 py-2 shadow-sm border border-slate-200">
+                <Globe className="text-blue-600" size={16} />
                 <div className="flex flex-col">
-                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Tenant Context</span>
+                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Tenant Context</span>
                   <select 
                     value={selectedAdminStoreId}
                     onChange={(e) => setSelectedAdminStoreId(e.target.value)}
-                    className="bg-transparent text-white text-xs font-black uppercase tracking-widest focus:outline-none cursor-pointer"
+                    className="bg-transparent text-slate-800 text-xs font-black uppercase tracking-widest focus:outline-none cursor-pointer"
                   >
-                    <option value="all" className="bg-slate-900">Global View</option>
-                    {stores.map(s => <option key={s.id} value={s.id} className="bg-slate-900">{s.name}</option>)}
+                    <option value="all" className="bg-white">Global View</option>
+                    {stores.map(s => <option key={s.id} value={s.id} className="bg-white">{s.name}</option>)}
                   </select>
                 </div>
               </div>
@@ -234,8 +234,8 @@ const Layout: React.FC<LayoutProps> = ({
            </div>
         )}
 
-        <main className="flex-1 overflow-y-auto p-10 custom-scrollbar">
-          <div className="max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <main className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-white">
+          <div className="max-w-[1800px] w-full mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500">
             {children}
           </div>
         </main>

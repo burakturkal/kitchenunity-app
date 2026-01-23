@@ -137,6 +137,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+
   const effectiveStoreId = useMemo(() => {
     if (currentUser.role === UserRole.ADMIN) return selectedAdminStoreId;
     return hostStoreId || '';
@@ -258,6 +259,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 )}
               </button>
             </form>
+
 
             <div className="p-8 bg-blue-50/50 rounded-[32px] border border-blue-100/50 flex flex-col gap-4">
                <div className="flex items-center gap-3">

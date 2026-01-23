@@ -86,8 +86,8 @@ const Accounting: React.FC<AccountingProps> = ({ orders }) => {
 
       {/* Unified Transaction Ledger */}
       <div className="bg-white rounded-[40px] border border-slate-200 overflow-hidden shadow-sm">
-         <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-            <h4 className="text-sm font-black uppercase tracking-widest text-slate-900">General Ledger View</h4>
+         <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/40">
+            <h4 className="text-sm font-semibold tracking-tight text-slate-900">General Ledger View</h4>
             <div className="flex gap-4">
                <div className="relative">
                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
@@ -106,7 +106,7 @@ const Accounting: React.FC<AccountingProps> = ({ orders }) => {
          </div>
          <div className="overflow-x-auto">
             <table className="w-full text-left">
-               <thead className="bg-slate-50/80 text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">
+               <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500 tracking-normal border-b border-slate-100">
                   <tr>
                      <th className="px-10 py-5">Tx ID</th>
                      <th className="px-10 py-5">Description</th>
@@ -118,16 +118,16 @@ const Accounting: React.FC<AccountingProps> = ({ orders }) => {
                </thead>
                <tbody className="divide-y divide-slate-100">
                   {filteredOrders.map(o => (
-                    <tr key={o.id} className="hover:bg-slate-50 transition-colors group">
+                    <tr key={o.id} className="odd:bg-slate-50/40 hover:bg-slate-100/60 transition-colors group">
                        <td className="px-10 py-5 text-xs font-mono text-slate-400">#{o.id.slice(-8)}</td>
                        <td className="px-10 py-5">
                           <p className="text-sm font-bold text-slate-800">Sales Order Fulfillment</p>
-                          <p className="text-[10px] text-slate-400 font-bold">{new Date(o.createdAt).toLocaleDateString()}</p>
+                          <p className="text-xs text-slate-500 font-medium">{new Date(o.createdAt).toLocaleDateString()}</p>
                        </td>
                        <td className="px-10 py-5">
                           <div className="flex items-center gap-2">
                              {o.status === 'Completed' ? <CheckCircle2 size={12} className="text-emerald-500" /> : <Clock size={12} className="text-amber-500" />}
-                             <span className={`text-[10px] font-black uppercase ${o.status === 'Completed' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                             <span className={`text-xs font-semibold ${o.status === 'Completed' ? 'text-emerald-600' : 'text-amber-600'}`}>
                                 {o.status === 'Completed' ? 'Paid' : 'Unpaid'}
                              </span>
                           </div>
@@ -135,7 +135,7 @@ const Accounting: React.FC<AccountingProps> = ({ orders }) => {
                        <td className="px-10 py-5 text-right font-mono text-rose-500 text-xs">$0.00</td>
                        <td className="px-10 py-5 text-right font-black text-slate-900 text-sm tabular-nums">${o.amount.toFixed(2)}</td>
                        <td className="px-10 py-5 text-center">
-                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-md ${o.isNonTaxable ? 'bg-slate-100 text-slate-400' : 'bg-blue-100 text-blue-600'}`}>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${o.isNonTaxable ? 'bg-slate-100 text-slate-500' : 'bg-blue-100 text-blue-600'}`}>
                              {o.isNonTaxable ? 'EXEMPT' : `${o.taxRate || 8.25}% VAT`}
                           </span>
                        </td>
@@ -145,7 +145,7 @@ const Accounting: React.FC<AccountingProps> = ({ orders }) => {
             </table>
          </div>
          {filteredOrders.length === 0 && (
-           <div className="py-20 text-center text-slate-400 font-black uppercase tracking-widest text-xs">No matching transactions found in the ledger.</div>
+           <div className="py-20 text-center text-slate-500 font-semibold text-sm">No matching transactions found in the ledger.</div>
          )}
       </div>
     </div>

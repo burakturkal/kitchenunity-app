@@ -69,7 +69,7 @@ const LeadList: React.FC<LeadListProps> = ({ leads, role, onUpdateStatus, onConv
                <button
                  key={opt.value}
                  onClick={() => setStatusFilter(opt.value)}
-                 className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${statusFilter === opt.value ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/20' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50'}`}
+                 className={`px-4 py-2 rounded-xl text-[11px] font-semibold tracking-wide whitespace-nowrap transition-all ${statusFilter === opt.value ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/20' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/60'}`}
                >
                  {opt.label}
                </button>
@@ -81,7 +81,7 @@ const LeadList: React.FC<LeadListProps> = ({ leads, role, onUpdateStatus, onConv
       <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm flex flex-col">
         <div className="flex-1 overflow-auto custom-scrollbar">
           <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50/80 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+            <thead className="bg-slate-50/80 text-slate-500 text-xs font-semibold tracking-normal border-b border-slate-100">
               <tr>
                 <th className="px-8 py-4">Inquiry Profile</th>
                 <th className="px-8 py-4">Status</th>
@@ -92,13 +92,13 @@ const LeadList: React.FC<LeadListProps> = ({ leads, role, onUpdateStatus, onConv
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredLeads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-slate-50 transition-colors group">
+                <tr key={lead.id} className="odd:bg-slate-50/40 hover:bg-slate-100/60 transition-colors group">
                   <td className="px-8 py-4">
                     <p className="text-sm font-bold text-slate-800">{lead.firstName} {lead.lastName}</p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Source: {lead.source}</p>
+                    <p className="text-xs text-slate-500 font-medium">Source: {lead.source}</p>
                   </td>
                   <td className="px-8 py-4">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${
+                    <span className={`px-3 py-1 rounded-full text-[11px] font-semibold ${
                       lead.status === LeadStatus.QUALIFIED ? 'bg-emerald-100 text-emerald-600' :
                       lead.status === LeadStatus.NEW ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600'
                     }`}>
@@ -107,7 +107,7 @@ const LeadList: React.FC<LeadListProps> = ({ leads, role, onUpdateStatus, onConv
                   </td>
                   <td className="px-8 py-4">
                     <div className="flex flex-col gap-0.5">
-                      <div className="flex items-center gap-1.5 text-blue-600 font-bold text-sm">
+                      <div className="flex items-center gap-1.5 text-blue-600 font-semibold text-sm">
                         <Mail size={12} /> {lead.email}
                       </div>
                       <div className="flex items-center gap-1.5 text-slate-400 font-mono text-[11px]">
@@ -115,7 +115,7 @@ const LeadList: React.FC<LeadListProps> = ({ leads, role, onUpdateStatus, onConv
                       </div>
                     </div>
                   </td>
-                  <td className="px-8 py-4 text-xs text-slate-400 font-bold">
+                  <td className="px-8 py-4 text-xs text-slate-500 font-medium">
                     {new Date(lead.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                   </td>
                   <td className="px-8 py-4 text-right">
@@ -135,7 +135,7 @@ const LeadList: React.FC<LeadListProps> = ({ leads, role, onUpdateStatus, onConv
                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                   <Search size={32} strokeWidth={1} />
                </div>
-               <p className="text-xs font-black uppercase tracking-widest text-slate-400">No leads match your search criteria</p>
+              <p className="text-sm font-semibold text-slate-500">No leads match your search criteria</p>
             </div>
           )}
         </div>

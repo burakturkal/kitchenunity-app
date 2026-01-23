@@ -217,12 +217,12 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, orders, claims, customers 
 
       {/* Recent Activity Ledger */}
       <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/40">
           <div>
-            <h3 className="text-xl font-black text-slate-900 tracking-tighter uppercase leading-none">Global Event Ledger</h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-widest">Real-time synchronization active</p>
+            <h3 className="text-xl font-semibold text-slate-900 tracking-tight leading-none">Global Event Ledger</h3>
+            <p className="text-xs text-slate-500 font-medium mt-1">Real-time synchronization active</p>
           </div>
-          <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-4 py-2 rounded-full uppercase tracking-widest flex items-center gap-2">
+          <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-4 py-2 rounded-full tracking-wide flex items-center gap-2">
             <Clock size={12} className="animate-spin-slow" />
             Live Sync
           </span>
@@ -230,7 +230,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, orders, claims, customers 
         <div className="overflow-x-auto">
           <table className="w-full text-left min-w-[800px]">
             <thead>
-              <tr className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
+              <tr className="bg-slate-50/60 text-xs font-semibold text-slate-500 tracking-normal border-b border-slate-100">
                 <th className="px-10 py-5">Entity Email</th>
                 <th className="px-10 py-5">Source Name</th>
                 <th className="px-10 py-5">Operational Status</th>
@@ -240,27 +240,27 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, orders, claims, customers 
             <tbody className="divide-y divide-slate-100">
               {leads.length > 0 ? (
                 leads.slice(0, 5).map((lead) => (
-                  <tr key={lead.id} className="hover:bg-slate-50 transition-colors group">
+                  <tr key={lead.id} className="odd:bg-slate-50/40 hover:bg-slate-100/60 transition-colors group">
                     <td className="px-10 py-5">
-                       <span className="text-sm font-bold text-blue-600 decoration-blue-200/50 underline underline-offset-4">{lead.email}</span>
+                       <span className="text-sm font-semibold text-blue-600 decoration-blue-200/60 underline underline-offset-4">{lead.email}</span>
                     </td>
                     <td className="px-10 py-5">
-                       <span className="text-sm text-slate-900 font-black tracking-tight">{lead.firstName} {lead.lastName}</span>
-                       <span className="text-[10px] text-slate-400 block font-bold uppercase">Via {lead.source}</span>
+                       <span className="text-sm text-slate-900 font-semibold tracking-tight">{lead.firstName} {lead.lastName}</span>
+                       <span className="text-xs text-slate-500 block font-medium">Via {lead.source}</span>
                     </td>
                     <td className="px-10 py-5">
-                       <span className="text-[10px] font-black uppercase tracking-tighter bg-slate-100 px-3 py-1 rounded-full text-slate-600">
+                       <span className="text-[11px] font-semibold bg-slate-100 px-3 py-1 rounded-full text-slate-600">
                           {lead.status}
                        </span>
                     </td>
-                    <td className="px-10 py-5 text-xs text-slate-400 font-black uppercase tracking-widest">
+                    <td className="px-10 py-5 text-xs text-slate-500 font-medium">
                        {new Date(lead.createdAt).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={4} className="px-10 py-20 text-center text-slate-400 font-black uppercase tracking-widest text-xs">Waiting for inbound data streams...</td>
+                  <td colSpan={4} className="px-10 py-20 text-center text-slate-500 font-semibold text-sm">Waiting for inbound data streams...</td>
                 </tr>
               )}
             </tbody>
