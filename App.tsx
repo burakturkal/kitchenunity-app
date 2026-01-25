@@ -333,13 +333,19 @@ const App: React.FC = () => {
     setSelectedItem((prev: any) => {
       const updated = { ...prev, [key]: value };
       if (key === 'lineItems') {
-        const total = (value as OrderLineItem[]).reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const taxRate = updated.salesTaxOverride !== undefined && updated.salesTaxOverride !== null && updated.salesTaxOverride !== ''
+        const subtotal = (value as OrderLineItem[]).reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const taxRatePercent = updated.salesTaxOverride !== undefined && updated.salesTaxOverride !== null && updated.salesTaxOverride !== ''
           ? Number(updated.salesTaxOverride)
           : (typeof updated.taxRate === 'number' ? updated.taxRate : 0);
-        const salesTax = updated.isNonTaxable ? 0 : (total * (taxRate || 0) / 100);
-        updated.amount = total + salesTax;
-        updated.salesTax = salesTax;
+        if (taxRatePercent < 0 || taxRatePercent > 100) {
+          throw new Error('Tax rate must be between 0 and 100.');
+        }
+        const taxAmount = parseFloat((subtotal * (taxRatePercent / 100)).toFixed(2));
+        const totalDue = subtotal + taxAmount;
+        updated.subtotal = subtotal;
+        updated.taxRatePercent = taxRatePercent;
+        updated.taxAmount = taxAmount;
+        updated.totalDue = totalDue;
       }
       return updated;
     });
@@ -718,12 +724,11 @@ const App: React.FC = () => {
       const isStoreUser = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.EMPLOYEE;
       const expenses = Array.isArray(selectedItem?.expenses) ? selectedItem.expenses : [];
       const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-      const taxRate = selectedItem?.salesTaxOverride !== undefined && selectedItem?.salesTaxOverride !== null && selectedItem?.salesTaxOverride !== ''
-        ? Number(selectedItem.salesTaxOverride)
-        : (typeof selectedItem?.taxRate === 'number' ? selectedItem.taxRate : 0);
-      const salesTax = selectedItem?.isNonTaxable ? 0 : ((selectedItem?.amount || 0) * (taxRate || 0) / 100);
-      const totalPayment = (selectedItem?.amount || 0) + salesTax;
-      const netProfit = (selectedItem?.amount || 0) - totalExpenses;
+      const subtotal = selectedItem?.subtotal || 0;
+      const taxRatePercent = selectedItem?.taxRatePercent || 0;
+      const taxAmount = selectedItem?.taxAmount || 0;
+      const totalDue = selectedItem?.totalDue || 0;
+      const netProfit = subtotal - totalExpenses;
 
       return (
         <div className="space-y-6">
@@ -738,12 +743,20 @@ const App: React.FC = () => {
                  ))}
               </div>
               <div className="mt-4">
-                <p className="text-[10px] font-black uppercase text-slate-400">Sales Tax</p>
-                <p className="text-lg font-black text-green-600">${salesTax.toFixed(2)}</p>
+                <p className="text-[10px] font-black uppercase text-slate-400">Subtotal</p>
+                <p className="text-lg font-black text-gray-600">${subtotal.toFixed(2)}</p>
               </div>
               <div className="mt-4">
-                <p className="text-[10px] font-black uppercase text-slate-400">Total Payment</p>
-                <p className="text-lg font-black text-blue-600">${totalPayment.toFixed(2)}</p>
+                <p className="text-[10px] font-black uppercase text-slate-400">Sales Tax ({taxRatePercent}%)</p>
+                <p className="text-lg font-black text-green-600">${taxAmount.toFixed(2)}</p>
+              </div>
+              <div className="mt-4">
+                <p className="text-[10px] font-black uppercase text-slate-400">Total Due</p>
+                <p className="text-lg font-black text-blue-600">${totalDue.toFixed(2)}</p>
+              </div>
+              <div className="mt-4">
+                <p className="text-[10px] font-black uppercase text-slate-400">Net Profit</p>
+                <p className="text-lg font-black text-emerald-600">${netProfit.toFixed(2)}</p>
               </div>
            </div>
            {lineItems.length > 0 && (
@@ -803,7 +816,7 @@ const App: React.FC = () => {
                      </div>
                      <div className="flex-1 flex flex-col items-end">
                        <span className="text-[10px] font-black uppercase text-slate-400">Sales Tax</span>
-                       <span className="text-lg font-black text-blue-600">${salesTax.toFixed(2)}</span>
+                       <span className="text-lg font-black text-blue-600">${taxAmount.toFixed(2)}</span>
                      </div>
                      <div className="flex-1 flex flex-col items-end">
                        <span className="text-[10px] font-black uppercase text-slate-400">Net Profit</span>
@@ -1101,7 +1114,7 @@ const App: React.FC = () => {
               return (
                 <div className="bg-emerald-50 p-6 rounded-[24px] flex flex-col md:flex-row justify-between items-center shadow-lg">
                   <div className="flex flex-col items-center md:items-start mb-2 md:mb-0">
-                    <span className="text-xs font-black uppercase text-emerald-600">Profit</span>
+                    <span className="text-xs font-black uppercase text-emerald-600">Net Profit</span>
                     <span className="text-2xl font-black text-emerald-900">${netProfit.toFixed(2)}</span>
                   </div>
                   <div className="flex flex-col items-center md:items-end">
@@ -1109,8 +1122,12 @@ const App: React.FC = () => {
                     <span className="text-lg font-black text-rose-900">${totalExpenses.toFixed(2)}</span>
                   </div>
                   <div className="flex flex-col items-center md:items-end">
-                    <span className="text-xs font-black uppercase text-blue-600">Sales Tax</span>
+                    <span className="text-xs font-black uppercase text-blue-600">Sales Tax ({taxRate}%)</span>
                     <span className="text-lg font-black text-blue-900">${salesTax.toFixed(2)}</span>
+                  </div>
+                  <div className="flex flex-col items-center md:items-end">
+                    <span className="text-xs font-black uppercase text-gray-600">Total Due</span>
+                    <span className="text-lg font-black text-gray-900">${(selectedItem.amount || 0).toFixed(2)}</span>
                   </div>
                 </div>
               );
