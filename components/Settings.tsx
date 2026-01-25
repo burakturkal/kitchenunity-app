@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
+import { MOCK_SALES_TAX, MOCK_EXPENSE_TYPES } from '../services/mockData';
+import { ExpenseType } from '../types';
 import { 
   Building2, 
   Mail, 
@@ -77,6 +79,11 @@ const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInputEleme
 
 const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, activeStore, stores = [], currentUserRole }) => {
   const [users, setUsers] = useState<UserRow[]>([]);
+  // --- Accounting State ---
+  const [accountingTab, setAccountingTab] = useState<'general' | 'accounting'>('general');
+  const [salesTax, setSalesTax] = useState<number>(MOCK_SALES_TAX);
+  const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>(MOCK_EXPENSE_TYPES);
+  const [newExpenseType, setNewExpenseType] = useState<{ name: string; description?: string }>({ name: '', description: '' });
 
   const [copied, setCopied] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
@@ -231,6 +238,84 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
 
   return (
     <div className="space-y-12 pb-24">
+      {/* ACCOUNTING TAB SWITCHER */}
+      <div className="flex gap-4 mb-8">
+        <button
+          className={`px-6 py-2 rounded-2xl font-black uppercase text-xs tracking-widest border-2 ${accountingTab === 'general' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200'}`}
+          onClick={() => setAccountingTab('general')}
+        >General</button>
+        <button
+          className={`px-6 py-2 rounded-2xl font-black uppercase text-xs tracking-widest border-2 ${accountingTab === 'accounting' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200'}`}
+          onClick={() => setAccountingTab('accounting')}
+        >Accounting</button>
+      </div>
+
+      {accountingTab === 'accounting' && (
+        <div className="bg-white rounded-[40px] border-2 border-blue-500/20 p-10 shadow-xl shadow-blue-500/5 relative overflow-hidden space-y-12">
+          <SectionHeader title="Sales Tax" icon={Database} />
+          <div className="mb-8">
+            <Label>Global Sales Tax (%)</Label>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={salesTax}
+              onChange={e => setSalesTax(Number(e.target.value))}
+              className="w-32 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+            />
+            <p className="text-xs text-slate-400 mt-2">This rate will be applied to all orders and quotes by default. You can override it per order/quote.</p>
+          </div>
+          <SectionHeader title="Expense Types" icon={Database} />
+          <div className="mb-8">
+            <Label>Add New Expense Type</Label>
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                placeholder="Expense Type Name"
+                value={newExpenseType.name}
+                onChange={e => setNewExpenseType({ ...newExpenseType, name: e.target.value })}
+                className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+              />
+              <input
+                type="text"
+                placeholder="Description (optional)"
+                value={newExpenseType.description}
+                onChange={e => setNewExpenseType({ ...newExpenseType, description: e.target.value })}
+                className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+              />
+              <button
+                className="px-6 py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-blue-500 transition-colors"
+                onClick={() => {
+                  if (!newExpenseType.name.trim()) return;
+                  setExpenseTypes(prev => [...prev, { id: `exp-${Date.now()}`, name: newExpenseType.name.trim(), description: newExpenseType.description }]);
+                  setNewExpenseType({ name: '', description: '' });
+                }}
+              >Add</button>
+            </div>
+            <div className="border border-slate-100 rounded-2xl overflow-x-auto">
+              <table className="w-full text-left min-w-[400px]">
+                <thead className="bg-slate-50 text-[9px] font-black uppercase text-slate-400">
+                  <tr><th className="px-4 py-2">Type</th><th className="px-4 py-2">Description</th><th className="px-4 py-2 text-right">#</th></tr>
+                </thead>
+                <tbody>
+                  {expenseTypes.map(type => (
+                    <tr key={type.id} className="text-sm">
+                      <td className="px-4 py-2 font-bold">{type.name}</td>
+                      <td className="px-4 py-2 text-slate-500">{type.description || ''}</td>
+                      <td className="px-4 py-2 text-right">
+                        <button onClick={() => setExpenseTypes(prev => prev.filter(t => t.id !== type.id))} className="text-rose-500 hover:bg-rose-50 p-1 rounded" title="Remove"><Trash2 size={12}/></button>
+                      </td>
+                    </tr>
+                  ))}
+                  {expenseTypes.length === 0 && (
+                    <tr><td colSpan={3} className="p-4 text-center text-xs text-slate-400">No expense types defined.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
       {/* LEAD CAPTURE INTEGRATION */}
       <div className="bg-white rounded-[40px] border-2 border-blue-500/20 p-10 shadow-xl shadow-blue-500/5 relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-5">

@@ -1,5 +1,13 @@
 
-import { CabinetStore, Lead, LeadStatus, Order, Claim, Customer, ClaimStatus, InventoryItem } from '../types';
+import { CabinetStore, Lead, LeadStatus, Order, Claim, Customer, ClaimStatus, InventoryItem, ExpenseType, Expense } from '../types';
+
+// Mock global sales tax and expense types for accounting
+export const MOCK_SALES_TAX = 8.25;
+export const MOCK_EXPENSE_TYPES: ExpenseType[] = [
+  { id: 'exp-1', name: 'Shipping', description: 'Shipping and delivery costs' },
+  { id: 'exp-2', name: 'Labor', description: 'Labor costs' },
+  { id: 'exp-3', name: 'Materials', description: 'Material costs' },
+];
 
 export const MOCK_STORES: CabinetStore[] = [
   { id: 'store-1', name: 'Elite Cabinets A', domain: 'acab.com', ownerEmail: 'john@acab.com', status: 'active', createdAt: '2023-01-15' },
@@ -69,7 +77,11 @@ export const MOCK_ORDERS: Order[] = [
     ],
     taxRate: 8.25,
     isNonTaxable: false,
-    notes: 'Standard delivery.'
+    notes: 'Standard delivery.',
+    expenses: [
+      { id: 'exp-inst-1', typeId: 'exp-1', typeName: 'Shipping', amount: 120, note: 'FedEx ground' },
+      { id: 'exp-inst-2', typeId: 'exp-2', typeName: 'Labor', amount: 300, note: 'Installers' }
+    ]
   }
 ];
 

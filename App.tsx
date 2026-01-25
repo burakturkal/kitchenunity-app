@@ -476,29 +476,31 @@ const App: React.FC = () => {
     }
     
     try {
-      if (selectedItem?.id && !selectedItem.id.toString().startsWith('gen-')) {
-        if (displayType.includes('lead')) {
-          await db.leads.update(selectedItem.id, selectedItem);
-          setLeads((prev: Lead[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item));
-        } else if (displayType.includes('customer')) {
-          await db.customers.update(selectedItem.id, selectedItem);
-          setCustomers((prev: Customer[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item));
-        } else if (displayType.includes('event')) {
-          await db.planner.update(selectedItem.id, selectedItem);
-          setEvents((prev: PlannerEvent[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item));
-        } else if (displayType.includes('claim')) {
-          await db.claims.update(selectedItem.id, selectedItem);
-          setClaims((prev: Claim[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item));
-        } else if (displayType.includes('store')) {
-          await db.stores.update(selectedItem.id, selectedItem);
-          setStores((prev: CabinetStore[]) => prev.map((s) => s.id === selectedItem.id ? { ...s, ...selectedItem } : s));
-        } else if (displayType.includes('order') || displayType.includes('quote') || displayType.includes('invoice') || displayType.includes('sale')) {
-          await db.orders.update(selectedItem.id, selectedItem);
-          setOrders((prev: Order[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item));
-        } else if (displayType.includes('inventory')) {
-          await db.inventory.update(selectedItem.id, selectedItem);
-          setInventory((prev: InventoryItem[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item));
-        }
+          if (selectedItem?.id && !selectedItem.id.toString().startsWith('gen-')) {
+            const updatePromises = [];
+            if (displayType.includes('lead')) {
+              updatePromises.push(db.leads.update(selectedItem.id, selectedItem));
+              updatePromises.push(setLeads((prev: Lead[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
+            } else if (displayType.includes('customer')) {
+              updatePromises.push(db.customers.update(selectedItem.id, selectedItem));
+              updatePromises.push(setCustomers((prev: Customer[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
+            } else if (displayType.includes('event')) {
+              updatePromises.push(db.planner.update(selectedItem.id, selectedItem));
+              updatePromises.push(setEvents((prev: PlannerEvent[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
+            } else if (displayType.includes('claim')) {
+              updatePromises.push(db.claims.update(selectedItem.id, selectedItem));
+              updatePromises.push(setClaims((prev: Claim[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
+            } else if (displayType.includes('store')) {
+              updatePromises.push(db.stores.update(selectedItem.id, selectedItem));
+              updatePromises.push(setStores((prev: CabinetStore[]) => prev.map((s) => s.id === selectedItem.id ? { ...s, ...selectedItem } : s)));
+            } else if (displayType.includes('order') || displayType.includes('quote') || displayType.includes('invoice') || displayType.includes('sale')) {
+              updatePromises.push(db.orders.update(selectedItem.id, selectedItem));
+              updatePromises.push(setOrders((prev: Order[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
+            } else if (displayType.includes('inventory')) {
+              updatePromises.push(db.inventory.update(selectedItem.id, selectedItem));
+              updatePromises.push(setInventory((prev: InventoryItem[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
+            }
+            await Promise.all(updatePromises);
       } else {
         if (displayType.includes('store')) {
           const name = (selectedItem.name || '').trim();
@@ -708,6 +710,16 @@ const App: React.FC = () => {
     );
     
     if (isView) {
+      // Expenses and Net Profit (store only)
+      const isStoreUser = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.EMPLOYEE;
+      const expenses = Array.isArray(selectedItem?.expenses) ? selectedItem.expenses : [];
+      const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+      const taxRate = selectedItem?.salesTaxOverride !== undefined && selectedItem?.salesTaxOverride !== null && selectedItem?.salesTaxOverride !== ''
+        ? Number(selectedItem.salesTaxOverride)
+        : (typeof selectedItem?.taxRate === 'number' ? selectedItem.taxRate : 0);
+      const salesTax = selectedItem?.isNonTaxable ? 0 : ((selectedItem?.amount || 0) * (taxRate || 0) / 100);
+      const netProfit = (selectedItem?.amount || 0) - totalExpenses - salesTax;
+
       return (
         <div className="space-y-6">
            <div className="p-10 bg-slate-50 rounded-[32px] border border-slate-100 shadow-inner">
@@ -766,6 +778,42 @@ const App: React.FC = () => {
                </div>
              </div>
            )}
+
+           {/* Expenses and Net Profit (store only) */}
+           {isStoreUser && (
+             <div className="p-10 bg-white rounded-[32px] border border-slate-100 shadow-sm space-y-4">
+               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-900 border-b border-slate-50 pb-2">Expenses & Net Profit</h4>
+               <div className="space-y-2">
+                 <div className="flex flex-col gap-2">
+                   <div className="flex flex-wrap gap-4">
+                     {expenses.length === 0 && <span className="text-xs text-slate-400 font-bold">No expenses recorded.</span>}
+                     {expenses.map((exp, idx) => (
+                       <div key={exp.id || idx} className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
+                         <span className="text-xs font-black uppercase text-blue-600">{exp.typeName || 'Expense'}</span>
+                         <span className="text-xs font-bold text-slate-800">${exp.amount?.toFixed(2)}</span>
+                         {exp.note && <span className="text-[10px] text-slate-400">{exp.note}</span>}
+                       </div>
+                     ))}
+                   </div>
+                   <div className="flex flex-col md:flex-row gap-4 mt-4">
+                     <div className="flex-1 flex flex-col items-end">
+                       <span className="text-[10px] font-black uppercase text-slate-400">Total Expenses</span>
+                       <span className="text-lg font-black text-rose-600">${totalExpenses.toFixed(2)}</span>
+                     </div>
+                     <div className="flex-1 flex flex-col items-end">
+                       <span className="text-[10px] font-black uppercase text-slate-400">Sales Tax</span>
+                       <span className="text-lg font-black text-blue-600">${salesTax.toFixed(2)}</span>
+                     </div>
+                     <div className="flex-1 flex flex-col items-end">
+                       <span className="text-[10px] font-black uppercase text-slate-400">Net Profit</span>
+                       <span className="text-lg font-black text-emerald-600">${netProfit.toFixed(2)}</span>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+             </div>
+           )}
+
            {attachments.length > 0 && (
              <div className="p-10 bg-white rounded-[32px] border border-slate-100 shadow-sm space-y-4">
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-900 border-b border-slate-50 pb-2">Documents</h4>
@@ -884,43 +932,146 @@ const App: React.FC = () => {
             </div>
           </FormSection>
           <FormSection title="Products" icon={ShoppingCart}>
-             <div className="col-span-2 space-y-4">
-                <div className="flex gap-4 items-end bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                   <div className="flex-1 space-y-1">
-                      <SearchableSelect 
-                        label="Product"
-                        options={inventory.map(i => ({ id: i.id, label: i.name, sublabel: `SKU: ${i.sku}` }))}
-                        value={newLineItemProduct}
-                        onChange={id => setNewLineItemProduct(id)}
-                      />
-                   </div>
-                   <div className="w-20 space-y-1"><Label>Qty</Label><Input type="number" value={newLineItemQty} onChange={e => setNewLineItemQty(Number(e.target.value))} min={1} /></div>
-                   <button onClick={addLineItem} className="px-4 py-3 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase h-[44px]">Add</button>
+            <div className="col-span-2 space-y-4">
+              <div className="flex gap-4 items-end bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="flex-1 space-y-1">
+                  <SearchableSelect 
+                    label="Product"
+                    options={inventory.map(i => ({ id: i.id, label: i.name, sublabel: `SKU: ${i.sku}` }))}
+                    value={newLineItemProduct}
+                    onChange={id => setNewLineItemProduct(id)}
+                  />
                 </div>
-                <div className="border border-slate-100 rounded-2xl overflow-x-auto">
-                   <table className="w-full text-left min-w-[500px]">
-                      <thead className="bg-slate-50 text-[9px] font-black uppercase text-slate-400">
-                         <tr><th className="px-4 py-2">Catalog Item</th><th className="px-4 py-2 text-center">Qty</th><th className="px-4 py-2 text-right">Price</th><th className="px-4 py-2 text-right">Total</th><th className="px-4 py-2 text-right">#</th></tr>
-                      </thead>
-                      <tbody>
-                        {lineItems.map(item => (
-                          <tr key={item.id} className="text-sm">
-                             <td className="px-4 py-2 font-bold">{item.productName}</td>
-                             <td className="px-4 py-2 text-center">{item.quantity}</td>
-                             <td className="px-4 py-2 text-right text-slate-500">${item.price.toFixed(2)}</td>
-                             <td className="px-4 py-2 text-right font-black">${(item.price * item.quantity).toFixed(2)}</td>
-                             <td className="px-4 py-2 text-right"><button onClick={() => removeLineItem(item.id)} className="text-rose-500 hover:bg-rose-50 p-1 rounded"><Trash2 size={12}/></button></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                   </table>
-                </div>
-                <div className="bg-slate-900 text-white p-6 rounded-[24px] flex justify-between items-center shadow-lg">
-                   <span className="text-xs font-black uppercase text-blue-400">Total Revenue</span>
-                   <span className="text-3xl font-black">${(selectedItem?.amount || 0).toFixed(2)}</span>
-                </div>
-             </div>
+                <div className="w-20 space-y-1"><Label>Qty</Label><Input type="number" value={newLineItemQty} onChange={e => setNewLineItemQty(Number(e.target.value))} min={1} /></div>
+                <button onClick={addLineItem} className="px-4 py-3 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase h-[44px]">Add</button>
+              </div>
+              <div className="border border-slate-100 rounded-2xl overflow-x-auto">
+                <table className="w-full text-left min-w-[500px]">
+                  <thead className="bg-slate-50 text-[9px] font-black uppercase text-slate-400">
+                    <tr><th className="px-4 py-2">Catalog Item</th><th className="px-4 py-2 text-center">Qty</th><th className="px-4 py-2 text-right">Price</th><th className="px-4 py-2 text-right">Total</th><th className="px-4 py-2 text-right">#</th></tr>
+                  </thead>
+                  <tbody>
+                    {lineItems.map(item => (
+                      <tr key={item.id} className="text-sm">
+                        <td className="px-4 py-2 font-bold">{item.productName}</td>
+                        <td className="px-4 py-2 text-center">{item.quantity}</td>
+                        <td className="px-4 py-2 text-right text-slate-500">${item.price.toFixed(2)}</td>
+                        <td className="px-4 py-2 text-right font-black">${(item.price * item.quantity).toFixed(2)}</td>
+                        <td className="px-4 py-2 text-right"><button onClick={() => removeLineItem(item.id)} className="text-rose-500 hover:bg-rose-50 p-1 rounded"><Trash2 size={12}/></button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </FormSection>
+
+          {/* Expenses Section - full width, below products, above total revenue */}
+          <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm col-span-2">
+            <Label>Expenses</Label>
+            <div className="space-y-2">
+              {(selectedItem.expenses || []).map((exp: any, idx: number) => (
+                <div key={exp.id || idx} className="flex items-center gap-2">
+                  <Select
+                    value={exp.typeId}
+                    onChange={e => {
+                      const updated = [...(selectedItem.expenses || [])];
+                      updated[idx] = { ...exp, typeId: e.target.value };
+                      updateSelectedItem('expenses', updated);
+                    }}
+                    className="w-32"
+                  >
+                    <option value="">Type</option>
+                    <option value="exp-1">Shipping</option>
+                    <option value="exp-2">Labor</option>
+                    <option value="exp-3">Materials</option>
+                  </Select>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={exp.amount}
+                    onChange={e => {
+                      const updated = [...(selectedItem.expenses || [])];
+                      updated[idx] = { ...exp, amount: Number(e.target.value) };
+                      updateSelectedItem('expenses', updated);
+                    }}
+                    placeholder="Amount"
+                    className="w-24"
+                  />
+                  <Input
+                    type="text"
+                    value={exp.note || ''}
+                    onChange={e => {
+                      const updated = [...(selectedItem.expenses || [])];
+                      updated[idx] = { ...exp, note: e.target.value };
+                      updateSelectedItem('expenses', updated);
+                    }}
+                    placeholder="Note"
+                    className="flex-1"
+                  />
+                  <button
+                    type="button"
+                    className="text-rose-500 hover:bg-rose-50 p-1 rounded"
+                    onClick={() => {
+                      const updated = [...(selectedItem.expenses || [])];
+                      updated.splice(idx, 1);
+                      updateSelectedItem('expenses', updated);
+                    }}
+                    title="Remove"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="px-4 py-2 bg-blue-100 text-blue-700 rounded-xl text-[10px] font-black uppercase tracking-widest mt-2"
+                onClick={() => {
+                  const updated = [...(selectedItem.expenses || []), { id: `exp-inst-${Date.now()}`, typeId: '', typeName: '', amount: 0, note: '' }];
+                  updateSelectedItem('expenses', updated);
+                }}
+              >+ Add Expense</button>
+            </div>
+          </div>
+
+          {/* Sales Tax Override - checkbox and input */}
+          <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm col-span-2 flex flex-col gap-2">
+            <label className="flex items-center gap-2 text-sm font-bold">
+              <input
+                type="checkbox"
+                checked={selectedItem.salesTaxOverride !== undefined && selectedItem.salesTaxOverride !== null && selectedItem.salesTaxOverride !== ''}
+                onChange={e => {
+                  if (e.target.checked) {
+                    updateSelectedItem('salesTaxOverride', 0);
+                  } else {
+                    updateSelectedItem('salesTaxOverride', undefined);
+                  }
+                }}
+              />
+              Different sales tax?
+            </label>
+            {selectedItem.salesTaxOverride !== undefined && selectedItem.salesTaxOverride !== null && selectedItem.salesTaxOverride !== '' && (
+              <div className="flex items-center gap-2 mt-2">
+                <Label>Sales Tax Override (%)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={selectedItem.salesTaxOverride}
+                  onChange={e => updateSelectedItem('salesTaxOverride', e.target.value === '' ? undefined : Number(e.target.value))}
+                  placeholder="Override global tax rate"
+                  className="w-32"
+                />
+                <span className="text-[10px] text-slate-400 ml-2">Leave blank to use the default store tax rate.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Total Revenue Section */}
+          <div className="bg-slate-900 text-white p-6 rounded-[24px] flex justify-between items-center shadow-lg">
+            <span className="text-xs font-black uppercase text-blue-400">Total Revenue</span>
+            <span className="text-3xl font-black">${(selectedItem?.amount || 0).toFixed(2)}</span>
+          </div>
           <FormSection title="Attachments & Notes" icon={Paperclip}>
             <div className="col-span-2 space-y-4">
               <div className="space-y-1">

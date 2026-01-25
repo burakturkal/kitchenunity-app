@@ -1,3 +1,17 @@
+// Expense type for accounting
+export interface ExpenseType {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface Expense {
+  id: string;
+  typeId: string;
+  typeName: string;
+  amount: number;
+  note?: string;
+}
 
 export enum UserRole {
   ADMIN = 'ADMIN',
@@ -110,8 +124,10 @@ export interface Order {
   lineItems: OrderLineItem[];
   taxRate: number;
   isNonTaxable: boolean;
+  salesTaxOverride?: number;
   notes: string;
   attachments?: Attachment[];
+  expenses?: Expense[];
 }
 
 export interface Claim {
