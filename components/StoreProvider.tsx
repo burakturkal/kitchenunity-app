@@ -28,7 +28,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [selectedAdminStoreId, setSelectedAdminStoreId] = useState<string>('all');
   const [hostStoreId, setHostStoreId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isBypassMode, setIsBypassMode] = useState(false);
 
   const [currentUser, setCurrentUser] = useState({
     id: 'u-1',
@@ -47,43 +46,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         // 2. Resolve domain to identify which store context we are in
         let resolvedId = resolveDomainToStoreId();
-
+        
         // 3. Load stores from the database
         const { data: allStores } = await supabase.from('stores').select('*');
         const mappedStores = (allStores || []).map(mapToCamel) as CabinetStore[];
         setStores(mappedStores);
 
-        // 4. If logged in, resolve profile (role + store)
-        if (currentSession?.user?.id) {
-          const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentSession.user.id).maybeSingle();
-          const mappedProfile = mapToCamel(profile);
-          const profileStoreId = mappedProfile?.storeId || null;
-          const profileRole = mappedProfile?.role;
-
-          if (profileStoreId) {
-            resolvedId = profileStoreId;
-          }
-
-          if (profileRole === 'super_admin') {
-            setCurrentUser({
-              id: currentSession.user.id,
-              name: currentSession.user.email || 'Super Admin',
-              role: UserRole.ADMIN,
-              storeId: profileStoreId || undefined
-            });
-            setSelectedAdminStoreId('all');
-          } else {
-            setCurrentUser({
-              id: currentSession.user.id,
-              name: currentSession.user.email || 'Store User',
-              role: UserRole.CUSTOMER,
-              storeId: profileStoreId || undefined
-            });
-            if (profileStoreId) setSelectedAdminStoreId(profileStoreId);
-          }
-        }
-
-        // 5. Fallback logic for resolution
+        // 4. Fallback logic for resolution
         if (!resolvedId && mappedStores.length > 0) {
           resolvedId = mappedStores[0].id; // Fallback to first available store for demo stability
         }
@@ -102,12 +71,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     initApp();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (!session) {
-        setCurrentUser({ id: 'u-1', name: 'Sarah Platform Admin', role: UserRole.ADMIN, storeId: undefined });
-        setSelectedAdminStoreId('all');
-        setHostStoreId(null);
-      }
+      if (session) setSession(session);
     });
 
     return () => subscription.unsubscribe();
@@ -117,13 +81,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     e.preventDefault();
     setIsAuthLoading(true);
     try {
-      const email = authEmail.trim().toLowerCase();
-      if (!email) {
-        alert('Email is required.');
-        return;
-      }
       const { error } = await supabase.auth.signInWithOtp({
-        email,
+        email: authEmail,
         options: { 
           emailRedirectTo: window.location.origin,
           shouldCreateUser: true
@@ -137,7 +96,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsAuthLoading(false);
     }
   };
-
 
   const effectiveStoreId = useMemo(() => {
     if (currentUser.role === UserRole.ADMIN) return selectedAdminStoreId;
@@ -169,7 +127,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   }
 
-  if (!session && !isBypassMode) {
+  if (!session) {
     return (
       <div className="h-screen w-screen flex flex-col lg:flex-row bg-slate-50 font-sans overflow-hidden animate-in fade-in duration-500">
         {/* Visual Branding Column */}
@@ -260,7 +218,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 )}
               </button>
             </form>
-
 
             <div className="p-8 bg-blue-50/50 rounded-[32px] border border-blue-100/50 flex flex-col gap-4">
                <div className="flex items-center gap-3">
