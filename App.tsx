@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -335,7 +334,12 @@ const App: React.FC = () => {
       const updated = { ...prev, [key]: value };
       if (key === 'lineItems') {
         const total = (value as OrderLineItem[]).reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        updated.amount = total;
+        const taxRate = updated.salesTaxOverride !== undefined && updated.salesTaxOverride !== null && updated.salesTaxOverride !== ''
+          ? Number(updated.salesTaxOverride)
+          : (typeof updated.taxRate === 'number' ? updated.taxRate : 0);
+        const salesTax = updated.isNonTaxable ? 0 : (total * (taxRate || 0) / 100);
+        updated.amount = total + salesTax;
+        updated.salesTax = salesTax;
       }
       return updated;
     });
@@ -718,7 +722,8 @@ const App: React.FC = () => {
         ? Number(selectedItem.salesTaxOverride)
         : (typeof selectedItem?.taxRate === 'number' ? selectedItem.taxRate : 0);
       const salesTax = selectedItem?.isNonTaxable ? 0 : ((selectedItem?.amount || 0) * (taxRate || 0) / 100);
-      const netProfit = (selectedItem?.amount || 0) - totalExpenses - salesTax;
+      const totalPayment = (selectedItem?.amount || 0) + salesTax;
+      const netProfit = (selectedItem?.amount || 0) - totalExpenses;
 
       return (
         <div className="space-y-6">
@@ -733,17 +738,14 @@ const App: React.FC = () => {
                    </div>
                  ))}
               </div>
-              {shouldShowEmailInvoiceButton && (
-                <div className="flex justify-end mt-8">
-                  <button
-                    type="button"
-                    onClick={handleSendInvoiceEmail}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-500 transition-colors"
-                  >
-                    <Mail size={16} /> Email Invoice to Customer
-                  </button>
-                </div>
-              )}
+              <div className="mt-4">
+                <p className="text-[10px] font-black uppercase text-slate-400">Sales Tax</p>
+                <p className="text-lg font-black text-green-600">${salesTax.toFixed(2)}</p>
+              </div>
+              <div className="mt-4">
+                <p className="text-[10px] font-black uppercase text-slate-400">Total Payment</p>
+                <p className="text-lg font-black text-blue-600">${totalPayment.toFixed(2)}</p>
+              </div>
            </div>
            {lineItems.length > 0 && (
              <div className="p-10 bg-white rounded-[32px] border border-slate-100 shadow-sm space-y-4">
