@@ -1,7 +1,17 @@
 const handleSaveSalesTax = async () => {
     try {
-      // Assuming there's a function to update the store in the database
-      await db.stores.update(activeStore?.id, { salesTax });
+      // Save the sales tax to the Supabase database
+      const { error } = await supabase
+        .from('stores')
+        .update({ salesTax })
+        .eq('id', activeStore?.id);
+
+      if (error) {
+        console.error('Failed to save sales tax to Supabase:', error);
+        alert('Failed to save global sales tax. Please try again.');
+        return;
+      }
+
       localStorage.setItem('globalSalesTax', salesTax.toString()); // Save to localStorage
 
       // Update the stores state
@@ -16,7 +26,7 @@ const handleSaveSalesTax = async () => {
 
       alert('Global sales tax saved successfully!');
     } catch (error) {
-      console.error('Failed to save global sales tax:', error);
+      console.error('Unexpected error saving global sales tax:', error);
       alert('Failed to save global sales tax. Please try again.');
     }
   };

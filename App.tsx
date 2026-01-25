@@ -272,15 +272,24 @@ const OrderSummaryCard = ({ lineItems, taxRate, totalExpenses }: { lineItems: Or
   );
 };
 
-// Updated function to fetch global sales tax from the database
+// Updated function to fetch global sales tax from Supabase
 const getGlobalSalesTax = async () => {
   try {
-    const { stores, effectiveStoreId } = useTenant(); // Destructure from useTenant
-    const store = stores.find((store) => store.id === effectiveStoreId); // Fetch the store data from the state
-    return store?.salesTax; // Return the sales tax without a default value
-  } catch (error) {
-    console.error('Failed to fetch global sales tax:', error);
-    return undefined; // Return undefined in case of an error
+    const { data, error } = await db
+      .from('stores')
+      .select('salesTax')
+      .eq('id', effectiveStoreId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching sales tax:', error);
+      return undefined;
+    }
+
+    return data?.salesTax || 0;
+  } catch (err) {
+    console.error('Unexpected error fetching sales tax:', err);
+    return undefined;
   }
 };
 
