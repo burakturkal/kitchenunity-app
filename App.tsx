@@ -264,11 +264,15 @@ const OrderSummaryCard = ({ lineItems, taxRate, totalExpenses }: { lineItems: Or
   );
 };
 
-// Updated function to fetch global sales tax from settings
-const getGlobalSalesTax = () => {
-  // Fetch the global sales tax from the application settings or database
-  const globalSalesTax = localStorage.getItem('globalSalesTax'); // Example: Fetch from localStorage
-  return globalSalesTax ? parseFloat(globalSalesTax) : 0.1; // Default to 10% if not set
+// Updated function to fetch global sales tax from the database
+const getGlobalSalesTax = async () => {
+  try {
+    const store = await db.stores.get(activeStore.id); // Fetch the store data from the database
+    return store?.salesTax || 0.1; // Return the sales tax or default to 10%
+  } catch (error) {
+    console.error('Failed to fetch global sales tax:', error);
+    return 0.1; // Default to 10% in case of an error
+  }
 };
 
 const App: React.FC = () => {

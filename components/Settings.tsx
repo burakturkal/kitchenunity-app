@@ -199,6 +199,7 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
     try {
       // Assuming there's a function to update the store in the database
       await db.stores.update(activeStore.id, { salesTax });
+      localStorage.setItem('globalSalesTax', salesTax.toString()); // Save to localStorage
       alert('Global sales tax saved successfully!');
     } catch (error) {
       console.error('Failed to save global sales tax:', error);
