@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://ffhdrhvstaonvcludbgn.supabase.co';
@@ -114,7 +113,8 @@ export const db = {
     async update(id: string, store: any) {
       const { error } = await supabase.from('stores').update({
         name: store.name,
-        store_key: store.domain || store.storeKey
+        store_key: store.domain || store.storeKey,
+        salesTax: store.salesTax // Added salesTax to the update payload
       }).eq('id', id);
       if (error) throw error;
     },
