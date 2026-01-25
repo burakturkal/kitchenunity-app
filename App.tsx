@@ -227,12 +227,16 @@ const FilterBar = ({ query, setQuery, filter, setFilter, options }: { query: str
 );
 
 // Update the calculation logic to fix discrepancies
+// Update the taxRate logic to use the global sales tax rate as the fallback
 const calculateOrderSummary = (lineItems, taxRate, totalExpenses) => {
+  // Fetch global sales tax rate if no taxRate is provided
+  const effectiveTaxRate = taxRate !== undefined && taxRate !== null ? taxRate : getGlobalSalesTax();
+
   // Calculate subtotal
   const subtotal = lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   // Calculate tax amount
-  const taxAmount = parseFloat((subtotal * (taxRate / 100)).toFixed(2));
+  const taxAmount = parseFloat((subtotal * (effectiveTaxRate / 100)).toFixed(2));
 
   // Calculate total due (revenue)
   const totalDue = subtotal + taxAmount;
