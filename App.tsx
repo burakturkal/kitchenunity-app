@@ -333,15 +333,20 @@ const App: React.FC = () => {
     setSelectedItem((prev: any) => {
       const updated = { ...prev, [key]: value };
       if (key === 'lineItems') {
+        console.log('lineItems:', value);
         const subtotal = (value as OrderLineItem[]).reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        console.log('Calculated subtotal:', subtotal);
         const taxRatePercent = updated.salesTaxOverride !== undefined && updated.salesTaxOverride !== null && updated.salesTaxOverride !== ''
           ? Number(updated.salesTaxOverride)
           : (typeof updated.taxRate === 'number' ? updated.taxRate : 0);
+        console.log('Tax rate percent:', taxRatePercent);
         if (taxRatePercent < 0 || taxRatePercent > 100) {
           throw new Error('Tax rate must be between 0 and 100.');
         }
         const taxAmount = parseFloat((subtotal * (taxRatePercent / 100)).toFixed(2));
+        console.log('Calculated tax amount:', taxAmount);
         const totalDue = subtotal + taxAmount;
+        console.log('Calculated total due:', totalDue);
         updated.subtotal = subtotal;
         updated.taxRatePercent = taxRatePercent;
         updated.taxAmount = taxAmount;
