@@ -114,6 +114,8 @@ export interface Order {
   attachments?: Attachment[];
 }
 
+export type Quote = Order;
+
 export interface Claim {
   id: string;
   storeId: string;

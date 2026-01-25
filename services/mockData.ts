@@ -1,5 +1,5 @@
 
-import { CabinetStore, Lead, LeadStatus, Order, Claim, Customer, ClaimStatus, InventoryItem } from '../types';
+import { CabinetStore, Lead, LeadStatus, Order, Quote, Claim, Customer, ClaimStatus, InventoryItem } from '../types';
 
 export const MOCK_STORES: CabinetStore[] = [
   { id: 'store-1', name: 'Elite Cabinets A', domain: 'acab.com', ownerEmail: 'john@acab.com', status: 'active', createdAt: '2023-01-15' },
@@ -70,6 +70,24 @@ export const MOCK_ORDERS: Order[] = [
     taxRate: 8.25,
     isNonTaxable: false,
     notes: 'Standard delivery.'
+  }
+];
+
+export const MOCK_QUOTES: Quote[] = [
+  {
+    id: 'quo-1',
+    storeId: 'store-1',
+    customerId: 'cust-1',
+    amount: 2800,
+    status: 'Quote',
+    createdAt: '2023-10-12',
+    lineItems: [
+      { id: 'li-q1', productId: 'inv-2', productName: 'Premium Hinge Set', sku: 'HNG-PRM', quantity: 20, price: 25 }
+    ],
+    taxRate: 8.25,
+    isNonTaxable: false,
+    notes: 'Expires in 30 days.',
+    attachments: []
   }
 ];
 
