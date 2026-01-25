@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { MOCK_SALES_TAX, MOCK_EXPENSE_TYPES } from '../services/mockData';
 import { ExpenseType } from '../types';
@@ -196,6 +195,17 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
     }
   };
 
+  const handleSaveSalesTax = async () => {
+    try {
+      // Assuming there's a function to update the store in the database
+      await db.stores.update(activeStore.id, { salesTax });
+      alert('Global sales tax saved successfully!');
+    } catch (error) {
+      console.error('Failed to save global sales tax:', error);
+      alert('Failed to save global sales tax. Please try again.');
+    }
+  };
+
   const handleInviteUser = async () => {
     if (!inviteEmail.trim()) {
       alert('Email is required.');
@@ -314,6 +324,12 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
               </table>
             </div>
           </div>
+          <button
+            onClick={handleSaveSalesTax}
+            className="px-6 py-3 bg-blue-500 text-white font-bold rounded-xl shadow-md hover:bg-blue-600 transition-all"
+          >
+            Save Settings
+          </button>
         </div>
       )}
       {/* LEAD CAPTURE INTEGRATION */}
