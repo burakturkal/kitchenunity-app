@@ -132,6 +132,23 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
     loadPending();
   }, [currentUserRole]);
 
+  useEffect(() => {
+    const fetchSalesTax = async () => {
+      try {
+        const { data, error } = await db.stores.list();
+        if (error) {
+          console.error('Error fetching sales tax:', error);
+        } else if (data && data.length > 0) {
+          setSalesTax(data[0].salesTax || 0); // Set the fetched sales tax value
+        }
+      } catch (err) {
+        console.error('Unexpected error fetching sales tax:', err);
+      }
+    };
+
+    fetchSalesTax();
+  }, []);
+
   const copyToClipboard = () => {
     navigator.clipboard.writeText(webhookUrl);
     setCopied(true);

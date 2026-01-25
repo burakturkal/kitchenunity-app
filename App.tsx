@@ -283,13 +283,13 @@ const getGlobalSalesTax = async () => {
 
     if (error) {
       console.error('Error fetching sales tax:', error);
-      return undefined;
+      return 0; // Default to 0 if there's an error
     }
 
-    return data?.salesTax || 0;
+    return data?.salesTax || 0; // Return the fetched sales tax or default to 0
   } catch (err) {
     console.error('Unexpected error fetching sales tax:', err);
-    return undefined;
+    return 0; // Default to 0 in case of an unexpected error
   }
 };
 
@@ -1375,7 +1375,7 @@ const App: React.FC = () => {
                <div className="bg-blue-50 border border-blue-100 px-6 py-3 rounded-2xl flex items-center gap-3">
                   <Globe size={18} className="text-blue-500" />
                   <div>
-                    <p className="text-[9px] font-black uppercase text-blue-600 tracking-widest">Active Regions</p>
+                                       <p className="text-[9px] font-black uppercase text-blue-600 tracking-widest">Active Regions</p>
                     <p className="text-sm font-bold text-slate-900">4 Data Centers</p>
                   </div>
                </div>
