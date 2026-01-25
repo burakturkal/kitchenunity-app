@@ -196,6 +196,7 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
   };
 
   const handleSaveSalesTax = async () => {
+    console.log('Saving salesTax:', salesTax); // Debugging log to check salesTax value
     try {
       // Assuming there's a function to update the store in the database
       await db.stores.update(activeStore?.id, { salesTax });
