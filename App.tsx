@@ -729,7 +729,6 @@ const App: React.FC = () => {
         <div className="space-y-6">
            <div className="p-10 bg-slate-50 rounded-[32px] border border-slate-100 shadow-inner">
               <p className="text-[10px] font-black uppercase text-slate-400 mb-4 tracking-widest">Metadata</p>
-              {/* Removed ID from metadata view */}
               <div className="grid grid-cols-2 gap-x-8 gap-y-4">
                  {metadataEntries.map((entry, index) => (
                    <div key={`${entry.label}-${index}`} className="flex justify-between border-b border-slate-200/50 pb-2">
