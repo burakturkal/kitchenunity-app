@@ -226,7 +226,7 @@ const FilterBar = ({ query, setQuery, filter, setFilter, options }: { query: str
   </div>
 );
 
-// Update the black card to display Subtotal, Sales Tax, Total Due, and Net Profit
+// Update the calculation logic to fix discrepancies
 const calculateOrderSummary = (lineItems, taxRate, totalExpenses) => {
   // Calculate subtotal
   const subtotal = lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -234,7 +234,7 @@ const calculateOrderSummary = (lineItems, taxRate, totalExpenses) => {
   // Calculate tax amount
   const taxAmount = parseFloat((subtotal * (taxRate / 100)).toFixed(2));
 
-  // Calculate total due
+  // Calculate total due (revenue)
   const totalDue = subtotal + taxAmount;
 
   // Calculate net profit (excluding tax)
@@ -243,7 +243,7 @@ const calculateOrderSummary = (lineItems, taxRate, totalExpenses) => {
   return { subtotal, taxAmount, totalDue, netProfit };
 };
 
-// Example usage in the component
+// Update the OrderSummaryCard to display correct values
 const OrderSummaryCard = ({ lineItems, taxRate, totalExpenses }: { lineItems: OrderLineItem[], taxRate: number, totalExpenses: number }) => {
   const { subtotal, taxAmount, totalDue, netProfit } = calculateOrderSummary(lineItems, taxRate, totalExpenses);
 
