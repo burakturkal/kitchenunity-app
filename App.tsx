@@ -966,76 +966,97 @@ const App: React.FC = () => {
             </div>
           </FormSection>
 
-          {/* Expenses Section - full width, below products, above total revenue */}
-          <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm col-span-2">
-            <Label>Expenses</Label>
-            <div className="space-y-2">
-              {(selectedItem.expenses || []).map((exp: any, idx: number) => (
-                <div key={exp.id || idx} className="flex items-center gap-2">
-                  <Select
-                    value={exp.typeId}
-                    onChange={e => {
-                      const updated = [...(selectedItem.expenses || [])];
-                      updated[idx] = { ...exp, typeId: e.target.value };
-                      updateSelectedItem('expenses', updated);
-                    }}
-                    className="w-32"
-                  >
-                    <option value="">Type</option>
-                    <option value="exp-1">Shipping</option>
-                    <option value="exp-2">Labor</option>
-                    <option value="exp-3">Materials</option>
-                  </Select>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={exp.amount}
-                    onChange={e => {
-                      const updated = [...(selectedItem.expenses || [])];
-                      updated[idx] = { ...exp, amount: Number(e.target.value) };
-                      updateSelectedItem('expenses', updated);
-                    }}
-                    placeholder="Amount"
-                    className="w-24"
-                  />
-                  <Input
-                    type="text"
-                    value={exp.note || ''}
-                    onChange={e => {
-                      const updated = [...(selectedItem.expenses || [])];
-                      updated[idx] = { ...exp, note: e.target.value };
-                      updateSelectedItem('expenses', updated);
-                    }}
-                    placeholder="Note"
-                    className="flex-1"
-                  />
-                  <button
-                    type="button"
-                    className="text-rose-500 hover:bg-rose-50 p-1 rounded"
-                    onClick={() => {
-                      const updated = [...(selectedItem.expenses || [])];
-                      updated.splice(idx, 1);
-                      updateSelectedItem('expenses', updated);
-                    }}
-                    title="Remove"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                className="px-4 py-2 bg-blue-100 text-blue-700 rounded-xl text-[10px] font-black uppercase tracking-widest mt-2"
-                onClick={() => {
-                  const updated = [...(selectedItem.expenses || []), { id: `exp-inst-${Date.now()}`, typeId: '', typeName: '', amount: 0, note: '' }];
-                  updateSelectedItem('expenses', updated);
+          {/* Revenue Section */}
+          <div className="bg-slate-900 text-white p-6 rounded-[24px] flex justify-between items-center shadow-lg mb-4">
+            <span className="text-xs font-black uppercase text-blue-400">Revenue</span>
+            <span className="text-3xl font-black">${(selectedItem?.amount || 0).toFixed(2)}</span>
+          </div>
+
+          {/* Expenses Section - collapsible with checkbox */}
+          <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm col-span-2 mb-4">
+            <label className="flex items-center gap-2 text-sm font-bold mb-2">
+              <input
+                type="checkbox"
+                checked={Array.isArray(selectedItem.expenses) && selectedItem.expenses.length > 0}
+                onChange={e => {
+                  if (e.target.checked) {
+                    updateSelectedItem('expenses', [{ id: `exp-inst-${Date.now()}`, typeId: '', typeName: '', amount: 0, note: '' }]);
+                  } else {
+                    updateSelectedItem('expenses', []);
+                  }
                 }}
-              >+ Add Expense</button>
-            </div>
+              />
+              Want to add expenses too?
+            </label>
+            {Array.isArray(selectedItem.expenses) && selectedItem.expenses.length > 0 && (
+              <div className="space-y-2 mt-2">
+                {(selectedItem.expenses || []).map((exp: any, idx: number) => (
+                  <div key={exp.id || idx} className="flex items-center gap-2">
+                    <Select
+                      value={exp.typeId}
+                      onChange={e => {
+                        const updated = [...(selectedItem.expenses || [])];
+                        updated[idx] = { ...exp, typeId: e.target.value };
+                        updateSelectedItem('expenses', updated);
+                      }}
+                      className="w-32"
+                    >
+                      <option value="">Type</option>
+                      <option value="exp-1">Shipping</option>
+                      <option value="exp-2">Labor</option>
+                      <option value="exp-3">Materials</option>
+                    </Select>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={exp.amount}
+                      onChange={e => {
+                        const updated = [...(selectedItem.expenses || [])];
+                        updated[idx] = { ...exp, amount: Number(e.target.value) };
+                        updateSelectedItem('expenses', updated);
+                      }}
+                      placeholder="Expense Amount"
+                      className="w-32"
+                    />
+                    <Input
+                      type="text"
+                      value={exp.note || ''}
+                      onChange={e => {
+                        const updated = [...(selectedItem.expenses || [])];
+                        updated[idx] = { ...exp, note: e.target.value };
+                        updateSelectedItem('expenses', updated);
+                      }}
+                      placeholder="Note"
+                      className="flex-1"
+                    />
+                    <button
+                      type="button"
+                      className="text-rose-500 hover:bg-rose-50 p-1 rounded"
+                      onClick={() => {
+                        const updated = [...(selectedItem.expenses || [])];
+                        updated.splice(idx, 1);
+                        updateSelectedItem('expenses', updated);
+                      }}
+                      title="Remove"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-blue-100 text-blue-700 rounded-xl text-[10px] font-black uppercase tracking-widest mt-2"
+                  onClick={() => {
+                    const updated = [...(selectedItem.expenses || []), { id: `exp-inst-${Date.now()}`, typeId: '', typeName: '', amount: 0, note: '' }];
+                    updateSelectedItem('expenses', updated);
+                  }}
+                >+ Add Expense</button>
+              </div>
+            )}
           </div>
 
           {/* Sales Tax Override - checkbox and input */}
-          <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm col-span-2 flex flex-col gap-2">
+          <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm col-span-2 flex flex-col gap-2 mb-4">
             <label className="flex items-center gap-2 text-sm font-bold">
               <input
                 type="checkbox"
@@ -1067,11 +1088,33 @@ const App: React.FC = () => {
             )}
           </div>
 
-          {/* Total Revenue Section */}
-          <div className="bg-slate-900 text-white p-6 rounded-[24px] flex justify-between items-center shadow-lg">
-            <span className="text-xs font-black uppercase text-blue-400">Total Revenue</span>
-            <span className="text-3xl font-black">${(selectedItem?.amount || 0).toFixed(2)}</span>
-          </div>
+          {/* Profit Section - only if expenses enabled */}
+          {Array.isArray(selectedItem.expenses) && selectedItem.expenses.length > 0 && (
+            (() => {
+              const totalExpenses = selectedItem.expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+              const taxRate = selectedItem.salesTaxOverride !== undefined && selectedItem.salesTaxOverride !== null && selectedItem.salesTaxOverride !== ''
+                ? Number(selectedItem.salesTaxOverride)
+                : (typeof selectedItem.taxRate === 'number' ? selectedItem.taxRate : 0);
+              const salesTax = selectedItem.isNonTaxable ? 0 : ((selectedItem.amount || 0) * (taxRate || 0) / 100);
+              const netProfit = (selectedItem.amount || 0) - totalExpenses - salesTax;
+              return (
+                <div className="bg-emerald-50 p-6 rounded-[24px] flex flex-col md:flex-row justify-between items-center shadow-lg">
+                  <div className="flex flex-col items-center md:items-start mb-2 md:mb-0">
+                    <span className="text-xs font-black uppercase text-emerald-600">Profit</span>
+                    <span className="text-2xl font-black text-emerald-900">${netProfit.toFixed(2)}</span>
+                  </div>
+                  <div className="flex flex-col items-center md:items-end">
+                    <span className="text-xs font-black uppercase text-rose-600">Total Expenses</span>
+                    <span className="text-lg font-black text-rose-900">${totalExpenses.toFixed(2)}</span>
+                  </div>
+                  <div className="flex flex-col items-center md:items-end">
+                    <span className="text-xs font-black uppercase text-blue-600">Sales Tax</span>
+                    <span className="text-lg font-black text-blue-900">${salesTax.toFixed(2)}</span>
+                  </div>
+                </div>
+              );
+            })()
+          )}
           <FormSection title="Attachments & Notes" icon={Paperclip}>
             <div className="col-span-2 space-y-4">
               <div className="space-y-1">
