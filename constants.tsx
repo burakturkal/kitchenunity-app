@@ -39,7 +39,6 @@ export const NAV_ITEMS: NavItem[] = [
     icon: DollarSign,
     subItems: [
       { id: 'sales-orders', label: 'Orders', icon: FileText },
-      { id: 'sales-invoices', label: 'Invoices', icon: BookOpen },
       { id: 'sales-quotes', label: 'Quotes', icon: Quote },
     ]
   },
