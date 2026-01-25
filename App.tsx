@@ -669,43 +669,37 @@ const App: React.FC = () => {
     const attachments: Attachment[] = selectedItem?.attachments || [];
     const lineItems: OrderLineItem[] = selectedItem?.lineItems || [];
 
-    const metadataEntries = (() => {
-      if (!selectedItem) return [] as { label: string; value: string }[];
-
-      return Object.entries(selectedItem).reduce((acc: { label: string; value: string }[], [key, rawValue]) => {
-        if (key === 'id' || typeof rawValue === 'object') return acc;
-
-        if (key === 'customerId') {
-          const customer = customers.find(c => c.id === rawValue);
-          acc.push({
-            label: 'Customer',
-            value: customer ? `${customer.firstName} ${customer.lastName}` : 'Unassigned'
-          });
-          return acc;
-        }
-
-        if (key === 'createdAt' || key === 'updatedAt') {
-          const date = new Date(String(rawValue));
-          acc.push({
-            label: key.replace(/([A-Z])/g, ' $1').trim(),
-            value: isNaN(date.getTime()) ? String(rawValue) : date.toLocaleString(undefined, {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit'
-            })
-          });
-          return acc;
-        }
-
-        acc.push({
-          label: key.replace(/([A-Z])/g, ' $1').trim(),
-          value: String(rawValue)
-        });
-        return acc;
-      }, []);
-    })();
+    // Restore detailed metadata for view modals, but remove id/storeId and add customer email/phone
+    let metadataEntries: { label: string; value: string }[] = [];
+    if (isView && (displayType.includes('order') || displayType.includes('quote') || displayType.includes('invoice'))) {
+      const customer = customers.find(c => c.id === selectedItem?.customerId);
+      if (customer) {
+        metadataEntries.push({ label: 'Customer', value: `${customer.firstName} ${customer.lastName}` });
+        metadataEntries.push({ label: 'Customer Email', value: customer.email });
+        metadataEntries.push({ label: 'Customer Phone', value: customer.phone || '' });
+      }
+      if (selectedItem?.createdAt) {
+        const date = new Date(selectedItem.createdAt);
+        metadataEntries.push({ label: 'Created At', value: isNaN(date.getTime()) ? String(selectedItem.createdAt) : date.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) });
+      }
+      if (selectedItem?.updatedAt) {
+        const date = new Date(selectedItem.updatedAt);
+        metadataEntries.push({ label: 'Updated At', value: isNaN(date.getTime()) ? String(selectedItem.updatedAt) : date.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) });
+      }
+      // Add all other primitive fields except id, storeId, customerId
+      Object.entries(selectedItem || {}).forEach(([key, val]) => {
+        if (['id', 'storeId', 'customerId', 'createdAt', 'updatedAt', 'attachments', 'lineItems'].includes(key) || typeof val === 'object') return;
+        metadataEntries.push({ label: key.replace(/([A-Z])/g, ' $1').trim(), value: String(val) });
+      });
+    } else if (isView && displayType.includes('customer')) {
+      // For customer view, show all except id, storeId
+      Object.entries(selectedItem || {}).forEach(([key, val]) => {
+        if (['id', 'storeId'].includes(key) || typeof val === 'object') return;
+        metadataEntries.push({ label: key.replace(/([A-Z])/g, ' $1').trim(), value: String(val) });
+      });
+    } else {
+      metadataEntries = [];
+    }
 
     const shouldShowEmailInvoiceButton = isView && (
       displayType.includes('order') ||
@@ -718,7 +712,7 @@ const App: React.FC = () => {
         <div className="space-y-6">
            <div className="p-10 bg-slate-50 rounded-[32px] border border-slate-100 shadow-inner">
               <p className="text-[10px] font-black uppercase text-slate-400 mb-4 tracking-widest">Metadata</p>
-              <h4 className="text-2xl font-black text-slate-900 mb-8 tracking-tighter uppercase">ID: {selectedItem.id}</h4>
+              {/* Removed ID from metadata view */}
               <div className="grid grid-cols-2 gap-x-8 gap-y-4">
                  {metadataEntries.map((entry, index) => (
                    <div key={`${entry.label}-${index}`} className="flex justify-between border-b border-slate-200/50 pb-2">
