@@ -226,6 +226,40 @@ const FilterBar = ({ query, setQuery, filter, setFilter, options }: { query: str
   </div>
 );
 
+// Update the black card to display Subtotal, Sales Tax, Total Due, and Net Profit
+const calculateOrderSummary = (lineItems, taxRate, totalExpenses) => {
+  // Calculate subtotal
+  const subtotal = lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  // Calculate tax amount
+  const taxAmount = parseFloat((subtotal * (taxRate / 100)).toFixed(2));
+
+  // Calculate total due
+  const totalDue = subtotal + taxAmount;
+
+  // Calculate net profit (excluding tax)
+  const netProfit = subtotal - totalExpenses;
+
+  return { subtotal, taxAmount, totalDue, netProfit };
+};
+
+// Example usage in the component
+const OrderSummaryCard = ({ lineItems, taxRate, totalExpenses }: { lineItems: OrderLineItem[], taxRate: number, totalExpenses: number }) => {
+  const { subtotal, taxAmount, totalDue, netProfit } = calculateOrderSummary(lineItems, taxRate, totalExpenses);
+
+  return (
+    <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-md space-y-4">
+      <h3 className="text-lg font-bold text-slate-800">Order Summary</h3>
+      <div className="text-sm text-slate-600">
+        <div className="flex justify-between"><span>Subtotal</span><span className="font-medium">${subtotal.toFixed(2)}</span></div>
+        <div className="flex justify-between"><span>Sales Tax ({taxRate}%)</span><span className="font-medium">${taxAmount.toFixed(2)}</span></div>
+        <div className="flex justify-between border-t border-slate-200 pt-2"><span className="font-bold">Total Due</span><span className="font-bold text-slate-900">${totalDue.toFixed(2)}</span></div>
+        <div className="flex justify-between"><span>Net Profit (Excluding Tax)</span><span className="font-medium text-emerald-600">${netProfit.toFixed(2)}</span></div>
+      </div>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const { 
     effectiveStoreId, 
@@ -317,9 +351,6 @@ const App: React.FC = () => {
       attachments: [],
       lineItems: [],
       amount: 0,
-      taxRate: 8.25, // Default tax rate
-      salesTaxOverride: null,
-      expenses: [],
       createdAt: new Date().toISOString()
     });
     setNewLineItemProduct('');
@@ -334,31 +365,12 @@ const App: React.FC = () => {
 
   const updateSelectedItem = (key: string, value: any) => {
     setSelectedItem((prev: any) => {
-      const updatedItem = { ...prev, [key]: value };
-
-      // Recalculate financials when relevant fields are updated
-      if (key === 'lineItems' || key === 'expenses' || key === 'taxRate' || key === 'salesTaxOverride') {
-        const subtotal = updatedItem.lineItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-        const taxRatePercent = updatedItem.salesTaxOverride !== null ? updatedItem.salesTaxOverride : updatedItem.taxRate;
-        const taxAmount = (subtotal * taxRatePercent) / 100;
-        const expensesTotal = updatedItem.expenses.reduce((sum, expense) => sum + expense.amount, 0);
-        const totalDue = subtotal + taxAmount + expensesTotal;
-        const revenue = subtotal - expensesTotal - taxAmount;
-
-        console.log('lineItems:', updatedItem.lineItems);
-        console.log('Calculated subtotal:', subtotal);
-        console.log('Tax rate percent:', taxRatePercent);
-        console.log('Calculated tax amount:', taxAmount);
-        console.log('Calculated total due:', totalDue);
-        console.log('Calculated revenue:', revenue);
-
-        updatedItem.subtotal = subtotal;
-        updatedItem.taxAmount = taxAmount;
-        updatedItem.totalDue = totalDue;
-        updatedItem.revenue = revenue;
+      const updated = { ...prev, [key]: value };
+      if (key === 'lineItems') {
+        const total = (value as OrderLineItem[]).reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        updated.amount = total;
       }
-
-      return updatedItem;
+      return updated;
     });
   };
 
@@ -735,16 +747,17 @@ const App: React.FC = () => {
       const isStoreUser = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.EMPLOYEE;
       const expenses = Array.isArray(selectedItem?.expenses) ? selectedItem.expenses : [];
       const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-      const subtotal = selectedItem?.subtotal || 0;
-      const taxRatePercent = selectedItem?.taxRatePercent || 0;
-      const taxAmount = selectedItem?.taxAmount || 0;
-      const totalDue = selectedItem?.totalDue || 0;
-      const netProfit = subtotal - totalExpenses;
+      const taxRate = selectedItem?.salesTaxOverride !== undefined && selectedItem?.salesTaxOverride !== null && selectedItem?.salesTaxOverride !== ''
+        ? Number(selectedItem.salesTaxOverride)
+        : (typeof selectedItem?.taxRate === 'number' ? selectedItem.taxRate : 0);
+      const salesTax = selectedItem?.isNonTaxable ? 0 : ((selectedItem?.amount || 0) * (taxRate || 0) / 100);
+      const netProfit = (selectedItem?.amount || 0) - totalExpenses - salesTax;
 
       return (
         <div className="space-y-6">
            <div className="p-10 bg-slate-50 rounded-[32px] border border-slate-100 shadow-inner">
               <p className="text-[10px] font-black uppercase text-slate-400 mb-4 tracking-widest">Metadata</p>
+              {/* Removed ID from metadata view */}
               <div className="grid grid-cols-2 gap-x-8 gap-y-4">
                  {metadataEntries.map((entry, index) => (
                    <div key={`${entry.label}-${index}`} className="flex justify-between border-b border-slate-200/50 pb-2">
@@ -753,22 +766,17 @@ const App: React.FC = () => {
                    </div>
                  ))}
               </div>
-              <div className="mt-4">
-                <p className="text-[10px] font-black uppercase text-slate-400">Subtotal</p>
-                <p className="text-lg font-black text-gray-600">${subtotal.toFixed(2)}</p>
-              </div>
-              <div className="mt-4">
-                <p className="text-[10px] font-black uppercase text-slate-400">Sales Tax ({taxRatePercent}%)</p>
-                <p className="text-lg font-black text-green-600">${taxAmount.toFixed(2)}</p>
-              </div>
-              <div className="mt-4">
-                <p className="text-[10px] font-black uppercase text-slate-400">Total Due</p>
-                <p className="text-lg font-black text-blue-600">${totalDue.toFixed(2)}</p>
-              </div>
-              <div className="mt-4">
-                <p className="text-[10px] font-black uppercase text-slate-400">Net Profit</p>
-                <p className="text-lg font-black text-emerald-600">${netProfit.toFixed(2)}</p>
-              </div>
+              {shouldShowEmailInvoiceButton && (
+                <div className="flex justify-end mt-8">
+                  <button
+                    type="button"
+                    onClick={handleSendInvoiceEmail}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-500 transition-colors"
+                  >
+                    <Mail size={16} /> Email Invoice to Customer
+                  </button>
+                </div>
+              )}
            </div>
            {lineItems.length > 0 && (
              <div className="p-10 bg-white rounded-[32px] border border-slate-100 shadow-sm space-y-4">
@@ -827,7 +835,7 @@ const App: React.FC = () => {
                      </div>
                      <div className="flex-1 flex flex-col items-end">
                        <span className="text-[10px] font-black uppercase text-slate-400">Sales Tax</span>
-                       <span className="text-lg font-black text-blue-600">${taxAmount.toFixed(2)}</span>
+                       <span className="text-lg font-black text-blue-600">${salesTax.toFixed(2)}</span>
                      </div>
                      <div className="flex-1 flex flex-col items-end">
                        <span className="text-[10px] font-black uppercase text-slate-400">Net Profit</span>
@@ -1125,7 +1133,7 @@ const App: React.FC = () => {
               return (
                 <div className="bg-emerald-50 p-6 rounded-[24px] flex flex-col md:flex-row justify-between items-center shadow-lg">
                   <div className="flex flex-col items-center md:items-start mb-2 md:mb-0">
-                    <span className="text-xs font-black uppercase text-emerald-600">Net Profit</span>
+                    <span className="text-xs font-black uppercase text-emerald-600">Profit</span>
                     <span className="text-2xl font-black text-emerald-900">${netProfit.toFixed(2)}</span>
                   </div>
                   <div className="flex flex-col items-center md:items-end">
@@ -1133,12 +1141,8 @@ const App: React.FC = () => {
                     <span className="text-lg font-black text-rose-900">${totalExpenses.toFixed(2)}</span>
                   </div>
                   <div className="flex flex-col items-center md:items-end">
-                    <span className="text-xs font-black uppercase text-blue-600">Sales Tax ({taxRate}%)</span>
+                    <span className="text-xs font-black uppercase text-blue-600">Sales Tax</span>
                     <span className="text-lg font-black text-blue-900">${salesTax.toFixed(2)}</span>
-                  </div>
-                  <div className="flex flex-col items-center md:items-end">
-                    <span className="text-xs font-black uppercase text-gray-600">Total Due</span>
-                    <span className="text-lg font-black text-gray-900">${(selectedItem.amount || 0).toFixed(2)}</span>
                   </div>
                 </div>
               );
