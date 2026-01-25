@@ -359,48 +359,6 @@ export const db = {
       if (error) throw error;
     }
   },
-  quotes: {
-    async list(storeId: string) {
-      if (!storeId) throw new Error("Tenant context missing.");
-      let query = supabase.from('quotes').select('*');
-      if (storeId !== 'all') query = query.eq('store_id', storeId);
-      const { data, error } = await query.order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data || []).map(mapToCamel);
-    },
-    async create(quote: any) {
-      const { data, error } = await supabase.from('quotes').insert([{
-        store_id: quote.storeId,
-        customer_id: quote.customerId,
-        amount: quote.amount,
-        status: quote.status,
-        line_items: quote.lineItems,
-        tax_rate: quote.taxRate,
-        is_non_taxable: quote.isNonTaxable,
-        notes: quote.notes,
-        attachments: quote.attachments
-      }]).select();
-      if (error) throw error;
-      return mapToCamel(data[0]);
-    },
-    async update(id: string, quote: any) {
-      const { error } = await supabase.from('quotes').update({
-        customer_id: quote.customerId,
-        amount: quote.amount,
-        status: quote.status,
-        line_items: quote.lineItems,
-        tax_rate: quote.taxRate,
-        is_non_taxable: quote.isNonTaxable,
-        notes: quote.notes,
-        attachments: quote.attachments
-      }).eq('id', id);
-      if (error) throw error;
-    },
-    async delete(id: string) {
-      const { error } = await supabase.from('quotes').delete().eq('id', id);
-      if (error) throw error;
-    }
-  },
   inventory: {
     async list(storeId: string) {
       if (!storeId) throw new Error("Tenant context missing.");
