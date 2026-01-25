@@ -138,6 +138,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const handleBypassLogin = () => {
+    setIsBypassMode(true);
+    if (!currentUser.storeId && hostStoreId) {
+      setCurrentUser(prev => ({ ...prev, storeId: hostStoreId || prev.storeId }));
+    }
+  };
+
 
   const effectiveStoreId = useMemo(() => {
     if (currentUser.role === UserRole.ADMIN) return selectedAdminStoreId;
@@ -258,6 +265,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     Send Login Link <ArrowRight size={18} />
                   </>
                 )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleBypassLogin}
+                className="w-full py-4 border border-slate-200 text-slate-600 rounded-[24px] text-[10px] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-2 hover:border-slate-900 hover:text-slate-900 transition-colors"
+              >
+                <Sparkles size={14} /> Bypass Login (Demo)
               </button>
             </form>
 

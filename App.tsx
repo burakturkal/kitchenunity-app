@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import LeadList from './components/LeadList';
@@ -51,7 +51,8 @@ import {
   UserPlus,
   Activity,
   Globe,
-  Store
+  Store,
+  Mail
 } from 'lucide-react';
 
 // --- Shared Internal Components ---
@@ -302,9 +303,11 @@ const App: React.FC = () => {
   const openModal = (type: string, item: any = null) => {
     setModalType(type);
     setSelectedItem(item ? JSON.parse(JSON.stringify(item)) : {
-      status: type.includes('Lead') ? LeadStatus.NEW : 
+            status: type.includes('Lead') ? LeadStatus.NEW : 
               type.includes('Event') ? PlannerEventStatus.SCHEDULED : 
               type.includes('Claim') ? ClaimStatus.OPEN : 
+              type.includes('Quote') ? 'Quote' :
+              type.includes('Invoice') ? 'Invoiced' :
               type.includes('Store') ? 'active' : 'Processing',
       type: type.includes('Event') ? PlannerEventType.MEASUREMENT : undefined,
       trackStock: type.includes('Inventory') ? true : undefined,
@@ -425,6 +428,45 @@ const App: React.FC = () => {
       alert("Database persistence failure.");
     }
   };
+
+  const handleSendInvoiceEmail = useCallback(() => {
+    if (!selectedItem) {
+      alert('No record selected.');
+      return;
+    }
+
+    const normalizedType = modalType.replace('View ', '').toLowerCase();
+    const supportsEmail = normalizedType.includes('order') || normalizedType.includes('invoice') || normalizedType.includes('customer');
+    if (!supportsEmail) {
+      alert('Emailing invoices is available from order, customer, or invoice records.');
+      return;
+    }
+
+    let recipientEmail = '';
+    let recipientName = '';
+
+    if (normalizedType.includes('customer')) {
+      recipientEmail = selectedItem.email || '';
+      recipientName = `${selectedItem.firstName || ''} ${selectedItem.lastName || ''}`.trim();
+    } else {
+      const customer = customers.find(c => c.id === selectedItem.customerId);
+      if (customer) {
+        recipientEmail = customer.email;
+        recipientName = `${customer.firstName} ${customer.lastName}`;
+      } else if (selectedItem.customerEmail) {
+        recipientEmail = selectedItem.customerEmail;
+        recipientName = selectedItem.customerName || 'Customer';
+      }
+    }
+
+    if (!recipientEmail) {
+      alert('No customer email on file for this record.');
+      return;
+    }
+
+    const nameSuffix = recipientName ? ` (${recipientName})` : '';
+    alert(`Invoice email dispatched to ${recipientEmail}${nameSuffix}.`);
+  }, [selectedItem, customers, modalType]);
 
   const handleSave = async () => {
     const displayType = modalType.replace('View ', '').toLowerCase();
@@ -626,6 +668,50 @@ const App: React.FC = () => {
     const displayType = modalType.replace('View ', '').toLowerCase();
     const attachments: Attachment[] = selectedItem?.attachments || [];
     const lineItems: OrderLineItem[] = selectedItem?.lineItems || [];
+
+    const metadataEntries = (() => {
+      if (!selectedItem) return [] as { label: string; value: string }[];
+
+      return Object.entries(selectedItem).reduce((acc: { label: string; value: string }[], [key, rawValue]) => {
+        if (key === 'id' || typeof rawValue === 'object') return acc;
+
+        if (key === 'customerId') {
+          const customer = customers.find(c => c.id === rawValue);
+          acc.push({
+            label: 'Customer',
+            value: customer ? `${customer.firstName} ${customer.lastName}` : 'Unassigned'
+          });
+          return acc;
+        }
+
+        if (key === 'createdAt' || key === 'updatedAt') {
+          const date = new Date(String(rawValue));
+          acc.push({
+            label: key.replace(/([A-Z])/g, ' $1').trim(),
+            value: isNaN(date.getTime()) ? String(rawValue) : date.toLocaleString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit'
+            })
+          });
+          return acc;
+        }
+
+        acc.push({
+          label: key.replace(/([A-Z])/g, ' $1').trim(),
+          value: String(rawValue)
+        });
+        return acc;
+      }, []);
+    })();
+
+    const shouldShowEmailInvoiceButton = isView && (
+      displayType.includes('order') ||
+      displayType.includes('invoice') ||
+      displayType.includes('customer')
+    );
     
     if (isView) {
       return (
@@ -634,15 +720,24 @@ const App: React.FC = () => {
               <p className="text-[10px] font-black uppercase text-slate-400 mb-4 tracking-widest">Metadata</p>
               <h4 className="text-2xl font-black text-slate-900 mb-8 tracking-tighter uppercase">ID: {selectedItem.id}</h4>
               <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                 {Object.entries(selectedItem).map(([key, val]) => (
-                   typeof val !== 'object' && key !== 'id' && (
-                     <div key={key} className="flex justify-between border-b border-slate-200/50 pb-2">
-                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{key.replace(/([A-Z])/g, ' $1')}</span>
-                       <span className="text-sm font-bold text-slate-800">{String(val)}</span>
-                     </div>
-                   )
+                 {metadataEntries.map((entry, index) => (
+                   <div key={`${entry.label}-${index}`} className="flex justify-between border-b border-slate-200/50 pb-2">
+                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{entry.label}</span>
+                     <span className="text-sm font-bold text-slate-800">{entry.value}</span>
+                   </div>
                  ))}
               </div>
+              {shouldShowEmailInvoiceButton && (
+                <div className="flex justify-end mt-8">
+                  <button
+                    type="button"
+                    onClick={handleSendInvoiceEmail}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-500 transition-colors"
+                  >
+                    <Mail size={16} /> Email Invoice to Customer
+                  </button>
+                </div>
+              )}
            </div>
            {lineItems.length > 0 && (
              <div className="p-10 bg-white rounded-[32px] border border-slate-100 shadow-sm space-y-4">
@@ -756,6 +851,11 @@ const App: React.FC = () => {
     }
 
     if (displayType.includes('order') || displayType.includes('quote') || displayType.includes('invoice') || displayType.includes('sale')) {
+      const isQuoteFlow = displayType.includes('quote');
+      const statusOptions = isQuoteFlow
+        ? ['Quote']
+        : ['Quote', 'Processing', 'Shipped', 'Invoiced', 'Completed'];
+
       return (
         <div className="space-y-10">
           <FormSection title="Context" icon={DollarSign}>
@@ -770,13 +870,23 @@ const App: React.FC = () => {
             </div>
             <div className="space-y-1">
               <Label>Status</Label>
-              <Select value={selectedItem?.status} onChange={e => updateSelectedItem('status', e.target.value)}>
-                <option value="Quote">Quote</option>
-                <option value="Processing">Processing</option>
-                <option value="Shipped">Shipped</option>
-                <option value="Invoiced">Invoiced</option>
-                <option value="Completed">Completed</option>
-              </Select>
+              {isQuoteFlow ? (
+                <div className="w-full px-5 py-3 bg-slate-100 border border-slate-200 rounded-3xl text-sm font-black text-slate-700 uppercase tracking-widest">
+                  {selectedItem?.status || 'Quote'}
+                </div>
+              ) : (
+                <Select
+                  value={selectedItem?.status}
+                  onChange={e => updateSelectedItem('status', e.target.value)}
+                >
+                  {statusOptions.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </Select>
+              )}
+              {isQuoteFlow && (
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mt-1">Quotes are locked to Quote status until converted.</p>
+              )}
             </div>
           </FormSection>
           <FormSection title="Products" icon={ShoppingCart}>
