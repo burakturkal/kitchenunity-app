@@ -339,17 +339,29 @@ const App: React.FC = () => {
     loadData();
   }, [effectiveStoreId]);
 
+  const calculateSubtotal = (lineItems: OrderLineItem[]) => {
+    return lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  };
+
+  const calculateTax = (subtotal: number, taxRate: number) => {
+    return parseFloat((subtotal * (taxRate / 100)).toFixed(2));
+  };
+
   const openModal = (type: string, item: any = null) => {
     setModalType(type);
     const globalSalesTax = getGlobalSalesTax(); // Function to fetch the global sales tax from settings
 
+    const defaultLineItems = item?.lineItems || [];
+    const defaultSubtotal = calculateSubtotal(defaultLineItems);
+    const defaultTax = calculateTax(defaultSubtotal, globalSalesTax);
+
     setSelectedItem(item ? JSON.parse(JSON.stringify(item)) : {
-            status: type.includes('Lead') ? LeadStatus.NEW : 
-              type.includes('Event') ? PlannerEventStatus.SCHEDULED : 
-              type.includes('Claim') ? ClaimStatus.OPEN : 
-              type.includes('Quote') ? 'Quote' :
-              type.includes('Invoice') ? 'Invoiced' :
-              type.includes('Store') ? 'active' : 'Processing',
+      status: type.includes('Lead') ? LeadStatus.NEW : 
+        type.includes('Event') ? PlannerEventStatus.SCHEDULED : 
+        type.includes('Claim') ? ClaimStatus.OPEN : 
+        type.includes('Quote') ? 'Quote' :
+        type.includes('Invoice') ? 'Invoiced' :
+        type.includes('Store') ? 'active' : 'Processing',
       type: type.includes('Event') ? PlannerEventType.MEASUREMENT : undefined,
       trackStock: type.includes('Inventory') ? true : undefined,
       quantity: 0,
@@ -357,10 +369,10 @@ const App: React.FC = () => {
       date: new Date().toISOString().split('T')[0],
       shippingAddress: { address1: '', address2: '', city: '', state: '', zip: '', country: 'US' },
       attachments: [],
-      lineItems: [],
+      lineItems: defaultLineItems,
       amount: 0,
-      subtotal: 0,
-      tax: globalSalesTax, // Use the global sales tax from settings
+      subtotal: defaultSubtotal,
+      tax: defaultTax, // Calculate tax dynamically based on subtotal and global sales tax
       createdAt: new Date().toISOString()
     });
     setNewLineItemProduct('');
@@ -377,8 +389,11 @@ const App: React.FC = () => {
     setSelectedItem((prev: any) => {
       const updated = { ...prev, [key]: value };
       if (key === 'lineItems') {
-        const total = (value as OrderLineItem[]).reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        updated.amount = total;
+        const newSubtotal = calculateSubtotal(value);
+        const newTax = calculateTax(newSubtotal, getGlobalSalesTax());
+        updated.subtotal = newSubtotal;
+        updated.tax = newTax;
+        updated.amount = newSubtotal + newTax;
       }
       return updated;
     });
