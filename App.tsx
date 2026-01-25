@@ -228,9 +228,9 @@ const FilterBar = ({ query, setQuery, filter, setFilter, options }: { query: str
 
 // Update the calculation logic to fix discrepancies
 // Update the taxRate logic to use the global sales tax rate as the fallback
-const calculateOrderSummary = (lineItems, taxRate, totalExpenses) => {
+const calculateOrderSummary = async (lineItems, taxRate, totalExpenses) => {
   // Fetch global sales tax rate if no taxRate is provided
-  const effectiveTaxRate = taxRate !== undefined && taxRate !== null ? taxRate : getGlobalSalesTax();
+  const effectiveTaxRate = taxRate !== undefined && taxRate !== null ? taxRate : await getGlobalSalesTax();
 
   // Calculate subtotal
   const subtotal = lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -247,18 +247,26 @@ const calculateOrderSummary = (lineItems, taxRate, totalExpenses) => {
   return { subtotal, taxAmount, totalDue, netProfit };
 };
 
-// Update the OrderSummaryCard to display correct values
+// Update the OrderSummaryCard to handle the asynchronous calculateOrderSummary
 const OrderSummaryCard = ({ lineItems, taxRate, totalExpenses }: { lineItems: OrderLineItem[], taxRate: number, totalExpenses: number }) => {
-  const { subtotal, taxAmount, totalDue, netProfit } = calculateOrderSummary(lineItems, taxRate, totalExpenses);
+  const [summary, setSummary] = useState({ subtotal: 0, taxAmount: 0, totalDue: 0, netProfit: 0 });
+
+  useEffect(() => {
+    const fetchSummary = async () => {
+      const result = await calculateOrderSummary(lineItems, taxRate, totalExpenses);
+      setSummary(result);
+    };
+    fetchSummary();
+  }, [lineItems, taxRate, totalExpenses]);
 
   return (
     <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-md space-y-4">
       <h3 className="text-lg font-bold text-slate-800">Order Summary</h3>
       <div className="text-sm text-slate-600">
-        <div className="flex justify-between"><span>Subtotal</span><span className="font-medium">${subtotal.toFixed(2)}</span></div>
-        <div className="flex justify-between"><span>Sales Tax ({taxRate}%)</span><span className="font-medium">${taxAmount.toFixed(2)}</span></div>
-        <div className="flex justify-between border-t border-slate-200 pt-2"><span className="font-bold">Total Due</span><span className="font-bold text-slate-900">${totalDue.toFixed(2)}</span></div>
-        <div className="flex justify-between"><span>Net Profit (Excluding Tax)</span><span className="font-medium text-emerald-600">${netProfit.toFixed(2)}</span></div>
+        <div className="flex justify-between"><span>Subtotal</span><span className="font-medium">${summary.subtotal.toFixed(2)}</span></div>
+        <div className="flex justify-between"><span>Sales Tax ({taxRate}%)</span><span className="font-medium">${summary.taxAmount.toFixed(2)}</span></div>
+        <div className="flex justify-between border-t border-slate-200 pt-2"><span className="font-bold">Total Due</span><span className="font-bold text-slate-900">${summary.totalDue.toFixed(2)}</span></div>
+        <div className="flex justify-between"><span>Net Profit (Excluding Tax)</span><span className="font-medium text-emerald-600">${summary.netProfit.toFixed(2)}</span></div>
       </div>
     </div>
   );
@@ -267,6 +275,7 @@ const OrderSummaryCard = ({ lineItems, taxRate, totalExpenses }: { lineItems: Or
 // Updated function to fetch global sales tax from the database
 const getGlobalSalesTax = async () => {
   try {
+    const { stores, effectiveStoreId } = useTenant(); // Destructure from useTenant
     const store = stores.find((store) => store.id === effectiveStoreId); // Fetch the store data from the state
     return store?.salesTax || 0.1; // Return the sales tax or default to 10%
   } catch (error) {
@@ -395,18 +404,20 @@ const App: React.FC = () => {
   };
 
   const updateSelectedItem = async (key: string, value: any) => {
-    setSelectedItem((prev: any) => {
-      const updated = { ...prev, [key]: value };
-      if (key === 'lineItems') {
-        const newSubtotal = calculateSubtotal(value);
-        const globalSalesTax = await getGlobalSalesTax(); // Await the function to fetch the global sales tax
-        const newTax = calculateTax(newSubtotal, globalSalesTax);
-        updated.subtotal = newSubtotal;
-        updated.tax = newTax;
-        updated.amount = newSubtotal + newTax;
-      }
-      return updated;
-    });
+    if (key === 'lineItems') {
+      const newSubtotal = calculateSubtotal(value);
+      const globalSalesTax = await getGlobalSalesTax(); // Await the function to fetch the global sales tax
+      const newTax = calculateTax(newSubtotal, globalSalesTax);
+      setSelectedItem((prev: any) => ({
+        ...prev,
+        [key]: value,
+        subtotal: newSubtotal,
+        tax: newTax,
+        amount: newSubtotal + newTax,
+      }));
+    } else {
+      setSelectedItem((prev: any) => ({ ...prev, [key]: value }));
+    }
   };
 
   const addLineItem = () => {
