@@ -264,10 +264,11 @@ const OrderSummaryCard = ({ lineItems, taxRate, totalExpenses }: { lineItems: Or
   );
 };
 
-// Placeholder function to fetch global sales tax from settings
+// Updated function to fetch global sales tax from settings
 const getGlobalSalesTax = () => {
-  // Replace this with the actual logic to fetch the global sales tax from settings
-  return 0.1; // Default to 10% for now
+  // Fetch the global sales tax from the application settings or database
+  const globalSalesTax = localStorage.getItem('globalSalesTax'); // Example: Fetch from localStorage
+  return globalSalesTax ? parseFloat(globalSalesTax) : 0.1; // Default to 10% if not set
 };
 
 const App: React.FC = () => {
