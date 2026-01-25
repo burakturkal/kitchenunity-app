@@ -267,7 +267,7 @@ const OrderSummaryCard = ({ lineItems, taxRate, totalExpenses }: { lineItems: Or
 // Updated function to fetch global sales tax from the database
 const getGlobalSalesTax = async () => {
   try {
-    const store = await db.stores.get(activeStore.id); // Fetch the store data from the database
+    const store = stores.find((store) => store.id === effectiveStoreId); // Fetch the store data from the state
     return store?.salesTax || 0.1; // Return the sales tax or default to 10%
   } catch (error) {
     console.error('Failed to fetch global sales tax:', error);
@@ -356,9 +356,9 @@ const App: React.FC = () => {
     return parseFloat((subtotal * (taxRate / 100)).toFixed(2));
   };
 
-  const openModal = (type: string, item: any = null) => {
+  const openModal = async (type: string, item: any = null) => {
     setModalType(type);
-    const globalSalesTax = getGlobalSalesTax(); // Function to fetch the global sales tax from settings
+    const globalSalesTax = await getGlobalSalesTax(); // Await the function to fetch the global sales tax from settings
 
     const defaultLineItems = item?.lineItems || [];
     const defaultSubtotal = calculateSubtotal(defaultLineItems);
@@ -394,12 +394,13 @@ const App: React.FC = () => {
     setSelectedItem(null);
   };
 
-  const updateSelectedItem = (key: string, value: any) => {
+  const updateSelectedItem = async (key: string, value: any) => {
     setSelectedItem((prev: any) => {
       const updated = { ...prev, [key]: value };
       if (key === 'lineItems') {
         const newSubtotal = calculateSubtotal(value);
-        const newTax = calculateTax(newSubtotal, getGlobalSalesTax());
+        const globalSalesTax = await getGlobalSalesTax(); // Await the function to fetch the global sales tax
+        const newTax = calculateTax(newSubtotal, globalSalesTax);
         updated.subtotal = newSubtotal;
         updated.tax = newTax;
         updated.amount = newSubtotal + newTax;
