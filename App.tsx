@@ -16,7 +16,6 @@ import {
   Customer, 
   Claim, 
   Order,
-  Quote,
   PlannerEvent,
   InventoryItem,
   PlannerEventType,
@@ -26,7 +25,7 @@ import {
   OrderLineItem,
   CabinetStore
 } from './types';
-import { MOCK_LEADS, MOCK_ORDERS, MOCK_QUOTES, MOCK_CUSTOMERS, MOCK_CLAIMS, MOCK_INVENTORY } from './services/mockData';
+import { MOCK_LEADS, MOCK_ORDERS, MOCK_CUSTOMERS, MOCK_CLAIMS, MOCK_INVENTORY } from './services/mockData';
 import { db } from './services/supabase';
 import { 
   X, 
@@ -263,7 +262,6 @@ const App: React.FC = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [events, setEvents] = useState<PlannerEvent[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -272,29 +270,24 @@ const App: React.FC = () => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [l, c, e, cl, o, q, inv] = await Promise.all([
+        const [l, c, e, cl] = await Promise.all([
           db.leads.list(effectiveStoreId),
           db.customers.list(effectiveStoreId),
           db.planner.list(effectiveStoreId),
-          db.claims.list(effectiveStoreId),
-          db.orders.list(effectiveStoreId),
-          db.quotes.list(effectiveStoreId),
-          db.inventory.list(effectiveStoreId)
+          db.claims.list(effectiveStoreId)
         ]);
         
         setLeads(l.length > 0 ? l : MOCK_LEADS);
         setCustomers(c.length > 0 ? c : MOCK_CUSTOMERS);
         setEvents(e.length > 0 ? e : []);
         setClaims(cl.length > 0 ? cl : MOCK_CLAIMS);
-        setOrders(o.length > 0 ? o : MOCK_ORDERS);
-        setQuotes(q.length > 0 ? q : MOCK_QUOTES);
-        setInventory(inv.length > 0 ? inv : MOCK_INVENTORY);
+        setOrders(MOCK_ORDERS);
+        setInventory(MOCK_INVENTORY);
       } catch (err) {
         console.error("Data fetch error:", err);
         setLeads(MOCK_LEADS);
         setCustomers(MOCK_CUSTOMERS);
         setOrders(MOCK_ORDERS);
-        setQuotes(MOCK_QUOTES);
         setClaims(MOCK_CLAIMS);
         setInventory(MOCK_INVENTORY);
       } finally {
@@ -310,9 +303,7 @@ const App: React.FC = () => {
       status: type.includes('Lead') ? LeadStatus.NEW : 
               type.includes('Event') ? PlannerEventStatus.SCHEDULED : 
               type.includes('Claim') ? ClaimStatus.OPEN : 
-              type.includes('Store') ? 'active' :
-              type.includes('Quote') ? 'Quote' :
-              type.includes('Invoice') ? 'Invoiced' : 'Processing',
+              type.includes('Store') ? 'active' : 'Processing',
       type: type.includes('Event') ? PlannerEventType.MEASUREMENT : undefined,
       trackStock: type.includes('Inventory') ? true : undefined,
       quantity: 0,
@@ -435,82 +426,48 @@ const App: React.FC = () => {
 
   const handleSave = async () => {
     const displayType = modalType.replace('View ', '').toLowerCase();
-    if (!selectedItem) {
-      alert('Nothing to save.');
-      return;
-    }
-
-    const isOrderFlow = displayType.includes('order') || displayType.includes('sale') || displayType.includes('invoice');
-    const isQuoteFlow = displayType.includes('quote');
-    const requiresStore = isOrderFlow || isQuoteFlow ||
-      displayType.includes('inventory') ||
-      displayType.includes('lead') ||
-      displayType.includes('customer') ||
-      displayType.includes('event') ||
-      displayType.includes('claim');
-
-    const adminFallbackStoreId = selectedAdminStoreId !== 'all' ? selectedAdminStoreId : undefined;
-    const resolvedStoreId = selectedItem.storeId || (effectiveStoreId === 'all' ? (adminFallbackStoreId || stores[0]?.id) : effectiveStoreId);
-
-    if (requiresStore && !resolvedStoreId) {
-      alert('Store context missing. Select a tenant first.');
-      return;
-    }
-
-    const itemWithStore = requiresStore ? { ...selectedItem, storeId: resolvedStoreId } : selectedItem;
     
     try {
       if (selectedItem?.id && !selectedItem.id.toString().startsWith('gen-')) {
         if (displayType.includes('lead')) {
-          await db.leads.update(selectedItem.id, itemWithStore);
-          setLeads((prev: Lead[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...itemWithStore } : item));
+          await db.leads.update(selectedItem.id, selectedItem);
+          setLeads((prev: Lead[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item));
         } else if (displayType.includes('customer')) {
-          await db.customers.update(selectedItem.id, itemWithStore);
-          setCustomers((prev: Customer[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...itemWithStore } : item));
+          await db.customers.update(selectedItem.id, selectedItem);
+          setCustomers((prev: Customer[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item));
         } else if (displayType.includes('event')) {
-          await db.planner.update(selectedItem.id, itemWithStore);
-          setEvents((prev: PlannerEvent[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...itemWithStore } : item));
+          await db.planner.update(selectedItem.id, selectedItem);
+          setEvents((prev: PlannerEvent[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item));
         } else if (displayType.includes('claim')) {
-          await db.claims.update(selectedItem.id, itemWithStore);
-          setClaims((prev: Claim[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...itemWithStore } : item));
+          await db.claims.update(selectedItem.id, selectedItem);
+          setClaims((prev: Claim[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item));
         } else if (displayType.includes('store')) {
           await db.stores.update(selectedItem.id, selectedItem);
           setStores((prev: CabinetStore[]) => prev.map((s) => s.id === selectedItem.id ? { ...s, ...selectedItem } : s));
-        } else if (isOrderFlow) {
-          await db.orders.update(selectedItem.id, itemWithStore);
-          setOrders((prev: Order[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...itemWithStore } : item));
-        } else if (isQuoteFlow) {
-          await db.quotes.update(selectedItem.id, itemWithStore);
-          setQuotes((prev: Quote[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...itemWithStore } : item));
-        } else if (displayType.includes('inventory')) {
-          await db.inventory.update(selectedItem.id, itemWithStore);
-          setInventory((prev: InventoryItem[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...itemWithStore } : item));
         }
       } else {
+        const newItemPayload = { ...selectedItem, storeId: effectiveStoreId };
+        
         if (displayType.includes('lead')) {
-          const saved = await db.leads.create(itemWithStore);
+          const saved = await db.leads.create(newItemPayload);
           setLeads((prev: Lead[]) => [saved as any, ...prev]);
         } else if (displayType.includes('customer')) {
-          const saved = await db.customers.create(itemWithStore);
+          const saved = await db.customers.create(newItemPayload);
           setCustomers((prev: Customer[]) => [saved as any, ...prev]);
         } else if (displayType.includes('event')) {
-          const saved = await db.planner.create(itemWithStore);
+          const saved = await db.planner.create(newItemPayload);
           setEvents((prev: PlannerEvent[]) => [saved as any, ...prev]);
         } else if (displayType.includes('claim')) {
-          const saved = await db.claims.create(itemWithStore);
+          const saved = await db.claims.create(newItemPayload);
           setClaims((prev: Claim[]) => [saved as any, ...prev]);
         } else if (displayType.includes('store')) {
-          const saved = await db.stores.create(selectedItem);
+          const saved = await db.stores.create(newItemPayload);
           setStores((prev: CabinetStore[]) => [saved as any, ...prev]);
-        } else if (isOrderFlow) {
-          const saved = await db.orders.create(itemWithStore);
-          setOrders((prev: Order[]) => [saved as any, ...prev]);
-        } else if (isQuoteFlow) {
-          const saved = await db.quotes.create(itemWithStore);
-          setQuotes((prev: Quote[]) => [saved as any, ...prev]);
-        } else if (displayType.includes('inventory')) {
-          const saved = await db.inventory.create(itemWithStore);
-          setInventory((prev: InventoryItem[]) => [saved as any, ...prev]);
+        } else {
+          const mockId = `gen-${Date.now()}`;
+          const mockItem = { ...selectedItem, id: mockId, createdAt: new Date().toISOString() };
+          if (displayType.includes('order') || displayType.includes('quote') || displayType.includes('sale')) setOrders((prev: Order[]) => [mockItem, ...prev]);
+          else if (displayType.includes('inventory')) setInventory((prev: InventoryItem[]) => [mockItem, ...prev]);
         }
       }
       closeModal();
@@ -540,15 +497,9 @@ const App: React.FC = () => {
       } else if (t.includes('store')) {
         await db.stores.delete(id);
         setStores((prev: CabinetStore[]) => prev.filter((s) => s.id !== id));
-      } else if (['order', 'invoice', 'sale'].includes(t)) {
-        await db.orders.delete(id);
-        setOrders((prev: Order[]) => prev.filter((o) => o.id !== id));
-      } else if (t === 'quote') {
-        await db.quotes.delete(id);
-        setQuotes((prev: Quote[]) => prev.filter((q) => q.id !== id));
-      } else if (t.includes('inventory')) {
-        await db.inventory.delete(id);
-        setInventory((prev: InventoryItem[]) => prev.filter((i) => i.id !== id));
+      } else {
+        if (['order', 'quote', 'invoice', 'sale'].includes(t)) setOrders((prev: Order[]) => prev.filter((o) => o.id !== id));
+        else if (t.includes('inventory')) setInventory((prev: InventoryItem[]) => prev.filter((i) => i.id !== id));
       }
     } catch (err) {
       console.error('Delete error:', err);
@@ -582,31 +533,10 @@ const App: React.FC = () => {
     }
   };
 
-  const handleConvertQuote = async (quote: Quote) => {
+  const handleConvertQuote = (quote: Order) => {
     if (!window.confirm(`Confirm order placement for Quote #${quote.id.slice(-6)}?`)) return;
-    const adminFallbackStoreId = selectedAdminStoreId !== 'all' ? selectedAdminStoreId : undefined;
-    const targetStoreId = quote.storeId || (effectiveStoreId === 'all' ? (adminFallbackStoreId || stores[0]?.id) : effectiveStoreId);
-    if (!targetStoreId) {
-      alert('Store context missing. Select a tenant first.');
-      return;
-    }
-
-    try {
-      const orderPayload = {
-        ...quote,
-        storeId: targetStoreId,
-        status: 'Processing',
-        createdAt: new Date().toISOString()
-      };
-      const savedOrder = await db.orders.create(orderPayload);
-      await db.quotes.delete(quote.id);
-      setOrders((prev: Order[]) => [savedOrder as any, ...prev]);
-      setQuotes((prev: Quote[]) => prev.filter((q) => q.id !== quote.id));
-      setActiveTab('sales-orders');
-    } catch (err) {
-      console.error('Quote conversion failed:', err);
-      alert('Conversion failure.');
-    }
+    setOrders((prev: Order[]) => prev.map((o) => o.id === quote.id ? { ...o, status: 'Processing' } : o));
+    setActiveTab('sales-orders');
   };
 
   const filteredCustomersTable = useMemo(() => {
@@ -626,16 +556,6 @@ const App: React.FC = () => {
       return matchesSearch && matchesFilter;
     });
   }, [orders, customers, tableSearch, tableFilter]);
-
-  const filteredQuotesTable = useMemo(() => {
-    return quotes.filter((q: Quote) => {
-      const customer = customers.find(c => c.id === q.customerId);
-      const customerName = customer ? `${customer.firstName} ${customer.lastName}`.toLowerCase() : '';
-      const matchesSearch = q.id.toLowerCase().includes(tableSearch.toLowerCase()) || customerName.includes(tableSearch.toLowerCase());
-      const matchesFilter = tableFilter === 'all' || q.status === tableFilter;
-      return matchesSearch && matchesFilter;
-    });
-  }, [quotes, customers, tableSearch, tableFilter]);
 
   const filteredClaims = useMemo(() => {
     return claims.filter((cl: Claim) => {
@@ -1033,48 +953,6 @@ const App: React.FC = () => {
           </div>
         </div>
       );
-      case 'sales-orders':
-      case 'sales-quotes': {
-        const isQuoteView = activeTab === 'sales-quotes';
-        const displayLabel = isQuoteView ? 'Quote' : 'Order';
-        const displayPlural = isQuoteView ? 'Quotes' : 'Orders';
-        const scopedRecords = isQuoteView ? filteredQuotesTable : filteredOrdersTable;
-
-        return (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-900 tracking-tighter">{displayLabel} Operations</h3><button onClick={() => openModal(displayLabel)} className="px-6 py-2 bg-slate-200 hover:bg-slate-300 rounded-lg text-xs font-black uppercase tracking-widest transition-colors">Draft {displayLabel}</button></div>
-            <FilterBar query={tableSearch} setQuery={setTableSearch} filter={tableFilter} setFilter={setTableFilter} options={[{ value: 'all', label: `All ${displayPlural}` }]} />
-            <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left min-w-[900px]">
-                  <thead className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                    <tr><th className="px-8 py-4">Transaction ID</th><th className="px-8 py-4">Client</th><th className="px-8 py-4">Revenue</th><th className="px-8 py-4">Workflow</th><th className="px-8 py-4">Opened</th><th className="px-8 py-4 text-right">Action</th></tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {scopedRecords.map(record => {
-                      const customer = customers.find(c => c.id === record.customerId);
-                      const actions = isQuoteView ? ['view', 'edit', 'delete', 'convert'] : ['view', 'edit', 'delete'];
-                      return (
-                        <tr key={record.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-8 py-4 text-xs font-mono text-slate-400">{record.id.slice(-8)}</td>
-                          <td className="px-8 py-4 text-sm font-bold text-slate-800">{customer ? `${customer.firstName} ${customer.lastName}` : 'Direct Sale'}</td>
-                          <td className="px-8 py-4 text-sm font-black text-blue-600">${record.amount.toFixed(2)}</td>
-                          <td className="px-8 py-4"><span className="text-[10px] font-black uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full">{record.status}</span></td>
-                          <td className="px-8 py-4"><DateBadge date={record.createdAt} /></td>
-                          <td className="px-8 py-4">{renderTableActions(actions, displayLabel, record)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {scopedRecords.length === 0 && (
-                  <div className="py-16 text-center text-xs font-black uppercase tracking-[0.2em] text-slate-400">No {displayPlural.toLowerCase()} found.</div>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      }
       case 'inventory': return (
         <div className="space-y-6">
           <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-900 tracking-tighter">Inventory</h3><button onClick={() => openModal('Inventory Item')} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-black uppercase shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 tracking-widest"><Plus size={14} /> Provision Catalog</button></div>
