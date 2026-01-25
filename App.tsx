@@ -817,6 +817,38 @@ const App: React.FC = () => {
                 </div>
              </div>
           </FormSection>
+          <FormSection title="Attachments & Notes" icon={Paperclip}>
+            <div className="col-span-2 space-y-4">
+              <div className="space-y-1">
+                <Label>Internal Notes</Label>
+                <Input type="textarea" value={selectedItem?.notes || ''} onChange={e => updateSelectedItem('notes', e.target.value)} />
+              </div>
+              <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <Label>Documents ({attachments.length})</Label>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">PDF, PNG, JPG supported</p>
+                </div>
+                <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[9px] font-black uppercase tracking-[0.2em]"><Paperclip size={12}/> Link File</button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {attachments.map(att => (
+                  <div key={att.id} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                    <span className="text-xs font-bold truncate pr-2" title={att.name}>{att.name}</span>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => downloadAttachment(att)} className="text-slate-400 hover:text-blue-600 transition-colors" title="Download"><Download size={14} /></button>
+                      <button onClick={() => removeAttachment(att.id)} className="text-rose-500 hover:bg-rose-50 p-1 rounded" title="Remove"><Trash2 size={12}/></button>
+                    </div>
+                  </div>
+                ))}
+                {attachments.length === 0 && (
+                  <div className="p-4 border border-dashed border-slate-200 rounded-xl text-center text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+                    No documents added yet
+                  </div>
+                )}
+              </div>
+            </div>
+          </FormSection>
         </div>
       );
     }
@@ -1015,6 +1047,54 @@ const App: React.FC = () => {
           </div>
         </div>
       );
+      case 'sales-orders':
+      case 'sales-invoices':
+      case 'sales-quotes': {
+        const statusFilter = activeTab === 'sales-quotes' ? 'Quote' : activeTab === 'sales-invoices' ? 'Invoiced' : 'Processing';
+        const displayLabel = activeTab === 'sales-quotes' ? 'Quote' : activeTab === 'sales-invoices' ? 'Invoice' : 'Order';
+        const displayPlural = `${displayLabel}${displayLabel.endsWith('s') ? 'es' : 's'}`;
+        const scopedOrders = filteredOrdersTable.filter(o => (
+          activeTab === 'sales-orders'
+            ? o.status !== 'Quote' && o.status !== 'Invoiced'
+            : o.status === statusFilter
+        ));
+
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-900 tracking-tighter">{displayLabel} Operations</h3><button onClick={() => openModal(displayLabel)} className="px-6 py-2 bg-slate-200 hover:bg-slate-300 rounded-lg text-xs font-black uppercase tracking-widest transition-colors">Draft {displayLabel}</button></div>
+            <FilterBar query={tableSearch} setQuery={setTableSearch} filter={tableFilter} setFilter={setTableFilter} options={[{ value: 'all', label: `All ${displayPlural}` }]} />
+            <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left min-w-[900px]">
+                  <thead className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                    <tr><th className="px-8 py-4">Transaction ID</th><th className="px-8 py-4">Client</th><th className="px-8 py-4">Revenue</th><th className="px-8 py-4">Workflow</th><th className="px-8 py-4">Opened</th><th className="px-8 py-4 text-right">Action</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {scopedOrders.map(order => {
+                      const customer = customers.find(c => c.id === order.customerId);
+                      const allowConvert = activeTab === 'sales-quotes';
+                      const actions = allowConvert ? ['view', 'edit', 'delete', 'convert'] : ['view', 'edit', 'delete'];
+                      return (
+                        <tr key={order.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-8 py-4 text-xs font-mono text-slate-400">{order.id.slice(-8)}</td>
+                          <td className="px-8 py-4 text-sm font-bold text-slate-800">{customer ? `${customer.firstName} ${customer.lastName}` : 'Direct Sale'}</td>
+                          <td className="px-8 py-4 text-sm font-black text-blue-600">${order.amount.toFixed(2)}</td>
+                          <td className="px-8 py-4"><span className="text-[10px] font-black uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full">{order.status}</span></td>
+                          <td className="px-8 py-4"><DateBadge date={order.createdAt} /></td>
+                          <td className="px-8 py-4">{renderTableActions(actions, displayLabel, order)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {scopedOrders.length === 0 && (
+                  <div className="py-16 text-center text-xs font-black uppercase tracking-[0.2em] text-slate-400">No {displayPlural.toLowerCase()} found.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
       case 'inventory': return (
         <div className="space-y-6">
           <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-900 tracking-tighter">Inventory</h3><button onClick={() => openModal('Inventory Item')} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-black uppercase shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 tracking-widest"><Plus size={14} /> Provision Catalog</button></div>

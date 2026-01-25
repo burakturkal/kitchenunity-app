@@ -28,6 +28,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [selectedAdminStoreId, setSelectedAdminStoreId] = useState<string>('all');
   const [hostStoreId, setHostStoreId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isBypassMode, setIsBypassMode] = useState(false);
 
   const [currentUser, setCurrentUser] = useState({
     id: 'u-1',
@@ -168,7 +169,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   }
 
-  if (!session) {
+  if (!session && !isBypassMode) {
     return (
       <div className="h-screen w-screen flex flex-col lg:flex-row bg-slate-50 font-sans overflow-hidden animate-in fade-in duration-500">
         {/* Visual Branding Column */}
