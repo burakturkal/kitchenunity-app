@@ -277,10 +277,10 @@ const getGlobalSalesTax = async () => {
   try {
     const { stores, effectiveStoreId } = useTenant(); // Destructure from useTenant
     const store = stores.find((store) => store.id === effectiveStoreId); // Fetch the store data from the state
-    return store?.salesTax || 0.1; // Return the sales tax or default to 10%
+    return store?.salesTax; // Return the sales tax without a default value
   } catch (error) {
     console.error('Failed to fetch global sales tax:', error);
-    return 0.1; // Default to 10% in case of an error
+    return undefined; // Return undefined in case of an error
   }
 };
 
