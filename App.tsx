@@ -260,6 +260,12 @@ const OrderSummaryCard = ({ lineItems, taxRate, totalExpenses }: { lineItems: Or
   );
 };
 
+// Placeholder function to fetch global sales tax from settings
+const getGlobalSalesTax = () => {
+  // Replace this with the actual logic to fetch the global sales tax from settings
+  return 0.1; // Default to 10% for now
+};
+
 const App: React.FC = () => {
   const { 
     effectiveStoreId, 
