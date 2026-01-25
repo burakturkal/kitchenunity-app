@@ -228,9 +228,9 @@ const FilterBar = ({ query, setQuery, filter, setFilter, options }: { query: str
 
 // Update the calculation logic to fix discrepancies
 // Update the taxRate logic to use the global sales tax rate as the fallback
-const calculateOrderSummary = async (lineItems, taxRate, totalExpenses) => {
+const calculateOrderSummary = async (lineItems, taxRate, totalExpenses, effectiveStoreId) => {
   // Fetch global sales tax rate if no taxRate is provided
-  const effectiveTaxRate = taxRate !== undefined && taxRate !== null ? taxRate : await getGlobalSalesTax();
+  const effectiveTaxRate = taxRate !== undefined && taxRate !== null ? taxRate : await getGlobalSalesTax(effectiveStoreId);
 
   // Calculate subtotal
   const subtotal = lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -248,16 +248,16 @@ const calculateOrderSummary = async (lineItems, taxRate, totalExpenses) => {
 };
 
 // Update the OrderSummaryCard to handle the asynchronous calculateOrderSummary
-const OrderSummaryCard = ({ lineItems, taxRate, totalExpenses }: { lineItems: OrderLineItem[], taxRate: number, totalExpenses: number }) => {
+const OrderSummaryCard = ({ lineItems, taxRate, totalExpenses, effectiveStoreId }: { lineItems: OrderLineItem[], taxRate: number, totalExpenses: number, effectiveStoreId: string }) => {
   const [summary, setSummary] = useState({ subtotal: 0, taxAmount: 0, totalDue: 0, netProfit: 0 });
 
   useEffect(() => {
     const fetchSummary = async () => {
-      const result = await calculateOrderSummary(lineItems, taxRate, totalExpenses);
+      const result = await calculateOrderSummary(lineItems, taxRate, totalExpenses, effectiveStoreId);
       setSummary(result);
     };
     fetchSummary();
-  }, [lineItems, taxRate, totalExpenses]);
+  }, [lineItems, taxRate, totalExpenses, effectiveStoreId]);
 
   return (
     <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-md space-y-4">
@@ -273,20 +273,17 @@ const OrderSummaryCard = ({ lineItems, taxRate, totalExpenses }: { lineItems: Or
 };
 
 // Updated function to fetch global sales tax from Supabase
-const getGlobalSalesTax = async () => {
+const getGlobalSalesTax = async (effectiveStoreId: string) => {
   try {
-    const { data, error } = await db
-      .from('stores')
-      .select('salesTax')
-      .eq('id', effectiveStoreId)
-      .single();
+    const stores = await db.stores.list(); // Fetch all stores
+    const store = stores.find(store => store.id === effectiveStoreId); // Find the store by ID
 
-    if (error) {
-      console.error('Error fetching sales tax:', error);
-      return 0; // Default to 0 if there's an error
+    if (!store) {
+      console.error('Store not found for the given ID:', effectiveStoreId);
+      return 0; // Default to 0 if the store is not found
     }
 
-    return data?.salesTax || 0; // Return the fetched sales tax or default to 0
+    return store.salesTax || 0; // Return the fetched sales tax or default to 0
   } catch (err) {
     console.error('Unexpected error fetching sales tax:', err);
     return 0; // Default to 0 in case of an unexpected error
@@ -376,7 +373,7 @@ const App: React.FC = () => {
 
   const openModal = async (type: string, item: any = null) => {
     setModalType(type);
-    const globalSalesTax = await getGlobalSalesTax(); // Await the function to fetch the global sales tax from settings
+    const globalSalesTax = await getGlobalSalesTax(effectiveStoreId); // Await the function to fetch the global sales tax from settings
 
     const defaultLineItems = item?.lineItems || [];
     const defaultSubtotal = calculateSubtotal(defaultLineItems);
@@ -415,7 +412,7 @@ const App: React.FC = () => {
   const updateSelectedItem = async (key: string, value: any) => {
     if (key === 'lineItems') {
       const newSubtotal = calculateSubtotal(value);
-      const globalSalesTax = await getGlobalSalesTax(); // Await the function to fetch the global sales tax
+      const globalSalesTax = await getGlobalSalesTax(effectiveStoreId); // Await the function to fetch the global sales tax
       const newTax = calculateTax(newSubtotal, globalSalesTax);
       setSelectedItem((prev: any) => ({
         ...prev,
@@ -1372,7 +1369,7 @@ const App: React.FC = () => {
                     <p className="text-sm font-bold text-slate-900">100% Online</p>
                   </div>
                </div>
-               <div className="bg-blue-50 border border-blue-100 px-6 py-3 rounded-2xl flex items-center gap-3">
+               <div className="bg-blue-50 border border-blue-100 px-6 py-3 rounded-2xl flex itemscenter gap-3">
                   <Globe size={18} className="text-blue-500" />
                   <div>
                                        <p className="text-[9px] font-black uppercase text-blue-600 tracking-widest">Active Regions</p>

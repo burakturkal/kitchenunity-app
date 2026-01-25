@@ -135,11 +135,11 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
   useEffect(() => {
     const fetchSalesTax = async () => {
       try {
-        const { data, error } = await db.stores.list();
-        if (error) {
-          console.error('Error fetching sales tax:', error);
-        } else if (data && data.length > 0) {
-          setSalesTax(data[0].salesTax || 0); // Set the fetched sales tax value
+        const stores = await db.stores.list(); // Corrected the response handling
+        if (stores && stores.length > 0) {
+          setSalesTax(stores[0].salesTax || 0); // Set the fetched sales tax value
+        } else {
+          console.error('No stores found or sales tax data is missing.');
         }
       } catch (err) {
         console.error('Unexpected error fetching sales tax:', err);

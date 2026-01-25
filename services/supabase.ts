@@ -35,7 +35,8 @@ const mapStoreFromDb = (store: any) => {
     domain: mapped.storeKey || mapped.domain || '',
     ownerEmail: mapped.ownerEmail || 'owner@kitchenunity.com',
     status: mapped.status || 'active',
-    createdAt: mapped.createdAt || new Date().toISOString()
+    createdAt: mapped.createdAt || new Date().toISOString(),
+    salesTax: mapped.salesTax || 0 // Added salesTax to the mapped object
   };
 };
 
