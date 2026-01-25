@@ -317,6 +317,9 @@ const App: React.FC = () => {
       attachments: [],
       lineItems: [],
       amount: 0,
+      taxRate: 8.25, // Default tax rate
+      salesTaxOverride: null,
+      expenses: [],
       createdAt: new Date().toISOString()
     });
     setNewLineItemProduct('');
@@ -331,28 +334,31 @@ const App: React.FC = () => {
 
   const updateSelectedItem = (key: string, value: any) => {
     setSelectedItem((prev: any) => {
-      const updated = { ...prev, [key]: value };
-      if (key === 'lineItems') {
-        console.log('lineItems:', value);
-        const subtotal = (value as OrderLineItem[]).reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const updatedItem = { ...prev, [key]: value };
+
+      // Recalculate financials when relevant fields are updated
+      if (key === 'lineItems' || key === 'expenses' || key === 'taxRate' || key === 'salesTaxOverride') {
+        const subtotal = updatedItem.lineItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+        const taxRatePercent = updatedItem.salesTaxOverride !== null ? updatedItem.salesTaxOverride : updatedItem.taxRate;
+        const taxAmount = (subtotal * taxRatePercent) / 100;
+        const expensesTotal = updatedItem.expenses.reduce((sum, expense) => sum + expense.amount, 0);
+        const totalDue = subtotal + taxAmount + expensesTotal;
+        const revenue = subtotal - expensesTotal - taxAmount;
+
+        console.log('lineItems:', updatedItem.lineItems);
         console.log('Calculated subtotal:', subtotal);
-        const taxRatePercent = updated.salesTaxOverride !== undefined && updated.salesTaxOverride !== null && updated.salesTaxOverride !== ''
-          ? Number(updated.salesTaxOverride)
-          : (typeof updated.taxRate === 'number' ? updated.taxRate : 0);
         console.log('Tax rate percent:', taxRatePercent);
-        if (taxRatePercent < 0 || taxRatePercent > 100) {
-          throw new Error('Tax rate must be between 0 and 100.');
-        }
-        const taxAmount = parseFloat((subtotal * (taxRatePercent / 100)).toFixed(2));
         console.log('Calculated tax amount:', taxAmount);
-        const totalDue = subtotal + taxAmount;
         console.log('Calculated total due:', totalDue);
-        updated.subtotal = subtotal;
-        updated.taxRatePercent = taxRatePercent;
-        updated.taxAmount = taxAmount;
-        updated.totalDue = totalDue;
+        console.log('Calculated revenue:', revenue);
+
+        updatedItem.subtotal = subtotal;
+        updatedItem.taxAmount = taxAmount;
+        updatedItem.totalDue = totalDue;
+        updatedItem.revenue = revenue;
       }
-      return updated;
+
+      return updatedItem;
     });
   };
 
