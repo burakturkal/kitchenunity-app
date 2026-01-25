@@ -335,6 +335,8 @@ const App: React.FC = () => {
 
   const openModal = (type: string, item: any = null) => {
     setModalType(type);
+    const globalSalesTax = getGlobalSalesTax(); // Function to fetch the global sales tax from settings
+
     setSelectedItem(item ? JSON.parse(JSON.stringify(item)) : {
             status: type.includes('Lead') ? LeadStatus.NEW : 
               type.includes('Event') ? PlannerEventStatus.SCHEDULED : 
@@ -351,6 +353,8 @@ const App: React.FC = () => {
       attachments: [],
       lineItems: [],
       amount: 0,
+      subtotal: 0,
+      tax: globalSalesTax, // Use the global sales tax from settings
       createdAt: new Date().toISOString()
     });
     setNewLineItemProduct('');
@@ -1000,9 +1004,19 @@ const App: React.FC = () => {
           </FormSection>
 
           {/* Revenue Section */}
-          <div className="bg-slate-900 text-white p-6 rounded-[24px] flex justify-between items-center shadow-lg mb-4">
-            <span className="text-xs font-black uppercase text-blue-400">Revenue</span>
-            <span className="text-3xl font-black">${(selectedItem?.amount || 0).toFixed(2)}</span>
+          <div className="bg-slate-900 text-white p-6 rounded-[24px] flex flex-col shadow-lg mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-black uppercase text-blue-400">Subtotal</span>
+              <span className="text-lg font-bold">${(selectedItem?.subtotal || 0).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-black uppercase text-blue-400">Tax</span>
+              <span className="text-lg font-bold">${(selectedItem?.tax || 0).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-black uppercase text-blue-400">Total</span>
+              <span className="text-3xl font-black">${(selectedItem?.amount || 0).toFixed(2)}</span>
+            </div>
           </div>
 
           {/* Expenses Section - collapsible with checkbox */}
