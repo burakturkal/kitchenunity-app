@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import ResetPassword from './components/ResetPassword';
+import { useRoute } from './components/SimpleRouter';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import LeadList from './components/LeadList';
@@ -291,6 +293,16 @@ const getGlobalSalesTax = async (effectiveStoreId: string) => {
 };
 
 const App: React.FC = () => {
+  // Simple routing for password reset
+  const [route] = useRoute();
+  const searchParams = new URLSearchParams(window.location.search);
+  const isRecovery = searchParams.get('type') === 'recovery';
+
+  // Show password reset page if recovery token is present
+  if (isRecovery) {
+    return <ResetPassword />;
+  }
+
   const { 
     effectiveStoreId, 
     currentUser, 
@@ -328,6 +340,11 @@ const App: React.FC = () => {
   const [claims, setClaims] = useState<Claim[]>([]);
   const [events, setEvents] = useState<PlannerEvent[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
+
+  useEffect(() => {
+    setTableSearch('');
+    setTableFilter('all');
+  }, [activeTab]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -1460,7 +1477,7 @@ const App: React.FC = () => {
               <div className="overflow-x-auto">
                 <table className="w-full text-left min-w-[900px]">
                   <thead className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                    <tr><th className="px-8 py-4">Transaction ID</th><th className="px-8 py-4">Client</th><th className="px-8 py-4">Revenue</th><th className="px-8 py-4">Workflow</th><th className="px-8 py-4">Opened</th><th className="px-8 py-4 text-right">Action</th></tr>
+                    <tr><th className="px-8 py-4">Transaction ID</th><th className="px-8 py-4">Client</th><th className="px-8 py-4">Revenue</th><th className="px-8 py-4">Workflow</th><th className="px-8 py-4 text-right">Action</th></tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {scopedOrders.map(order => {
@@ -1472,7 +1489,7 @@ const App: React.FC = () => {
                           <td className="px-8 py-4 text-xs font-mono text-slate-400">{order.id.slice(-8)}</td>
                           <td className="px-8 py-4 text-sm font-bold text-slate-800">{customer ? `${customer.firstName} ${customer.lastName}` : 'Direct Sale'}</td>
                           <td className="px-8 py-4 text-sm font-black text-blue-600">${order.amount.toFixed(2)}</td>
-                          <td className="px-8 py-4"><span className="text-[10px] font-black uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full">{order.status}</span></td>
+                          <td className="px-8 py-4"><span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full ${order.status === ClaimStatus.RESOLVED ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>{order.status}</span></td>
                           <td className="px-8 py-4"><DateBadge date={order.createdAt} /></td>
                           <td className="px-8 py-4">{renderTableActions(actions, displayLabel, order)}</td>
                         </tr>
