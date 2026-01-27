@@ -295,6 +295,17 @@ const getGlobalSalesTax = async (effectiveStoreId: string) => {
 const App: React.FC = () => {
   // Password reset routing logic (must be first)
   // Support both search and hash-based query params
+  const [locationKey, setLocationKey] = useState(0);
+  useEffect(() => {
+    const handler = () => setLocationKey(k => k + 1);
+    window.addEventListener('hashchange', handler);
+    window.addEventListener('popstate', handler);
+    return () => {
+      window.removeEventListener('hashchange', handler);
+      window.removeEventListener('popstate', handler);
+    };
+  }, []);
+
   function getAllParams() {
     // Prefer search params if present, else parse hash
     let params = new URLSearchParams(window.location.search);

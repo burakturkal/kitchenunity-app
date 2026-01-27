@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { CabinetStore, UserRole } from '../types';
 import { resolveDomainToStoreId, mapToCamel, supabase } from '../services/supabase';
@@ -222,12 +221,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         </div>
 
         {/* Login Form Column */}
-        <div className="flex-1 flex flex-col items-center justify-center p-8 lg:p-20 relative bg-white overflow-y-auto">
+        <div className="flex-1 flex flex-col items-center justify-center p-8 lg:p-20 relative bg-white overflow-y-auto" style={{ minHeight: '100vh', justifyContent: 'flex-start' }}>
           <div className="lg:hidden absolute top-8 left-8 flex items-center gap-3">
-             <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center">
-                <Building2 size={18} className="text-white" />
-             </div>
-             <span className="font-black text-slate-900 uppercase tracking-tighter">Kitchen Unity</span>
+            <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center">
+              <Building2 size={18} className="text-white" />
+            </div>
+            <span className="font-black text-slate-900 uppercase tracking-tighter">Kitchen Unity</span>
           </div>
 
           <div className="w-full max-w-md space-y-10 py-10">
@@ -244,7 +243,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
             <form onSubmit={handleLogin} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Work Email Address</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                   <input 
@@ -272,6 +271,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 </div>
               </div>
 
+
               <button 
                 type="submit" 
                 disabled={isAuthLoading}
@@ -281,10 +281,38 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   <Clock className="animate-spin" size={18} />
                 ) : (
                   <>
-                    Send Login Link <ArrowRight size={18} />
+                    Sign In <ArrowRight size={18} />
                   </>
                 )}
               </button>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="text-xs text-blue-600 font-bold hover:underline focus:outline-none"
+                  onClick={async () => {
+                    const email = authEmail.trim().toLowerCase();
+                    if (!email) {
+                      alert('Please enter your email address above first.');
+                      return;
+                    }
+                    try {
+                      setIsAuthLoading(true);
+                      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                        redirectTo: window.location.origin + '/'
+                      });
+                      if (error) throw error;
+                      alert('Password reset email sent! Please check your inbox.');
+                    } catch (err: any) {
+                      alert(err.message || 'Failed to send password reset email.');
+                    } finally {
+                      setIsAuthLoading(false);
+                    }
+                  }}
+                >
+                  Forgot password?
+                </button>
+              </div>
 
               <button
                 type="button"
@@ -297,18 +325,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
 
             <div className="p-8 bg-blue-50/50 rounded-[32px] border border-blue-100/50 flex flex-col gap-4">
-               <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-blue-600">
-                    <Lock size={18} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight">Security Protocol</p>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Passwordless Gateway</p>
-                  </div>
-               </div>
-               <p className="text-[10px] text-slate-500 font-medium leading-relaxed uppercase tracking-widest">
-                 We'll send a one-time secure magic link to your email. This ensures higher data protection for all tenants without the need for vulnerable passwords.
-               </p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-blue-600">
+                  <Lock size={18} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight">Security Protocol</p>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Password Authentication</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500 font-medium leading-relaxed uppercase tracking-widest">
+                Enter your email and password to access your workspace. If you forgot your password, use the reset link above.
+              </p>
             </div>
 
             <div className="text-center space-y-2 pt-4">
