@@ -294,8 +294,19 @@ const getGlobalSalesTax = async (effectiveStoreId: string) => {
 
 const App: React.FC = () => {
   // Password reset routing logic (must be first)
-  const searchParams = new URLSearchParams(window.location.search);
-  const isRecovery = searchParams.get('type') === 'recovery';
+  // Support both search and hash-based query params
+  function getAllParams() {
+    // Prefer search params if present, else parse hash
+    let params = new URLSearchParams(window.location.search);
+    if (!params.has('type') && window.location.hash) {
+      // Remove leading # and possible leading /
+      let hash = window.location.hash.replace(/^#\/?/, '');
+      params = new URLSearchParams(hash);
+    }
+    return params;
+  }
+  const allParams = getAllParams();
+  const isRecovery = allParams.get('type') === 'recovery';
   if (isRecovery) {
     return <ResetPassword />;
   }
