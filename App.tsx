@@ -336,7 +336,7 @@ const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<string>('');
   const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); console.log('Effective Store ID:', effectiveStoreId); // Debugging: Log the effectiveStoreId
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
