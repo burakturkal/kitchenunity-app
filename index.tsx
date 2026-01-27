@@ -1,6 +1,7 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+
+import './animate-shake.css';
 
 import App from './App';
 import { StoreProvider } from './components/StoreProvider';

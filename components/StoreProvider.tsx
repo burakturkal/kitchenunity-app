@@ -29,6 +29,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [hostStoreId, setHostStoreId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isBypassMode, setIsBypassMode] = useState(false);
+  const [emailError, setEmailError] = useState(false);
 
   const [currentUser, setCurrentUser] = useState({
     id: 'u-1',
@@ -197,7 +198,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mt-1">SaaS Management Platform</p>
             </div>
           </div>
-          
+
+          {/* New Buttons Row */}
+          <div className="relative z-10 flex gap-4 mt-8">
+            <a
+              href="tel:5127656664"
+              className="px-6 py-3 bg-blue-600 text-slate-400 max-w-sm text-base font-medium leading-relaxed rounded-xl shadow-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-sans"
+              style={{ textDecoration: 'none' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="inline-block" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M22 16.92V19a2 2 0 0 1-2.18 2A19.72 19.72 0 0 1 3 5.18 2 2 0 0 1 5 3h2.09a2 2 0 0 1 2 1.72c.13.81.36 1.6.68 2.34a2 2 0 0 1-.45 2.11l-.27.27a16 16 0 0 0 6.29 6.29l.27-.27a2 2 0 0 1 2.11-.45c.74.32 1.53.55 2.34.68A2 2 0 0 1 22 16.92z"/></svg>
+              Call Us
+            </a>
+            <a
+              href="https://www.KitchenUnity.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-6 py-3 bg-white text-slate-400 max-w-sm text-base font-medium leading-relaxed rounded-xl shadow-lg hover:bg-blue-100 transition-colors flex items-center gap-2 border border-blue-600 font-sans"
+              style={{ textDecoration: 'none' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="inline-block" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 0 20M12 2a15.3 15.3 0 0 0 0 20"/></svg>
+              Get More Information
+            </a>
+          </div>
+
           <div className="relative z-10">
             <h2 className="text-7xl font-black text-white tracking-tighter leading-[0.85] uppercase mb-8">
               The Hub of <br /> <span className="text-blue-500">Cabinets.</span>
@@ -243,16 +266,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
             <form onSubmit={handleLogin} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                <label className={`text-[10px] font-black uppercase tracking-widest ${emailError ? 'text-red-500' : 'text-slate-400'}`}>Email Address</label>
+                <div className={`relative ${emailError ? 'animate-shake' : ''}`}>
+                  <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 ${emailError ? 'text-red-400' : 'text-slate-400'}`} size={20} />
                   <input 
                     type="email" 
                     required
                     placeholder="manager@kitchenunity.com"
-                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-3xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                    className={`w-full pl-12 pr-4 py-4 bg-slate-50 border rounded-3xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300 ${emailError ? 'border-red-500' : 'border-slate-200'}`}
                     value={authEmail}
-                    onChange={e => setAuthEmail(e.target.value)}
+                    onChange={e => { setAuthEmail(e.target.value); setEmailError(false); }}
                   />
                 </div>
               </div>
@@ -293,7 +316,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   onClick={async () => {
                     const email = authEmail.trim().toLowerCase();
                     if (!email) {
-                      alert('Please enter your email address above first.');
+                      setEmailError(true);
+                      setTimeout(() => setEmailError(false), 1000);
                       return;
                     }
                     try {
