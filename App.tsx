@@ -293,12 +293,9 @@ const getGlobalSalesTax = async (effectiveStoreId: string) => {
 };
 
 const App: React.FC = () => {
-  // Simple routing for password reset
-  const [route] = useRoute();
+  // Password reset routing logic (must be first)
   const searchParams = new URLSearchParams(window.location.search);
   const isRecovery = searchParams.get('type') === 'recovery';
-
-  // Show password reset page if recovery token is present
   if (isRecovery) {
     return <ResetPassword />;
   }
