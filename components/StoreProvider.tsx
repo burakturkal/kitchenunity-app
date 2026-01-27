@@ -23,6 +23,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isLoading, setIsLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
   const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [stores, setStores] = useState<CabinetStore[]>([]);
   const [selectedAdminStoreId, setSelectedAdminStoreId] = useState<string>('all');
@@ -118,19 +119,23 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsAuthLoading(true);
     try {
       const email = authEmail.trim().toLowerCase();
+      const password = authPassword;
       if (!email) {
         alert('Email is required.');
+        setIsAuthLoading(false);
         return;
       }
-      const { error } = await supabase.auth.signInWithOtp({
+      if (!password) {
+        alert('Password is required.');
+        setIsAuthLoading(false);
+        return;
+      }
+      const { error } = await supabase.auth.signInWithPassword({
         email,
-        options: { 
-          emailRedirectTo: window.location.origin,
-          shouldCreateUser: true
-        }
+        password
       });
       if (error) throw error;
-      alert("Magic login link sent! Please check your email inbox.");
+      // Successful login will redirect or update session automatically
     } catch (err: any) {
       alert(err.message || "Authentication attempt failed.");
     } finally {
@@ -249,6 +254,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-3xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
                     value={authEmail}
                     onChange={e => setAuthEmail(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                  <input
+                    type="password"
+                    required
+                    placeholder="Enter your password"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-3xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                    value={authPassword}
+                    onChange={e => setAuthPassword(e.target.value)}
                   />
                 </div>
               </div>
