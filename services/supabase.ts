@@ -222,7 +222,9 @@ export const db = {
         last_name: customer.lastName,
         email: customer.email,
         phone: customer.phone,
-        notes: customer.notes
+        notes: customer.notes,
+        shipping_address: customer.shippingAddress,
+        billing_address: customer.billingAddress
       }]).select();
       if (error) throw error;
       return mapCustomerFromDb(data[0]);
@@ -233,7 +235,9 @@ export const db = {
         last_name: customer.lastName,
         email: customer.email,
         phone: customer.phone,
-        notes: customer.notes
+        notes: customer.notes,
+        shipping_address: customer.shippingAddress,
+        billing_address: customer.billingAddress
       }).eq('id', id);
       if (error) throw error;
     },

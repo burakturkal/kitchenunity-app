@@ -340,7 +340,14 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
-  const [quickCustomer, setQuickCustomer] = useState({ firstName: '', lastName: '', email: '', phone: '' });
+  const [quickCustomer, setQuickCustomer] = useState({ 
+    firstName: '', 
+    lastName: '', 
+    email: '', 
+    phone: '', 
+    shippingAddress: { address1: '', address2: '', city: '', state: '', zip: '', country: 'US' },
+    billingAddress: { address1: '', address2: '', city: '', state: '', zip: '', country: 'US' }
+  });
 
   const [tableSearch, setTableSearch] = useState('');
   const [tableFilter, setTableFilter] = useState('all');
@@ -527,12 +534,10 @@ const App: React.FC = () => {
       alert("Please enter a first name and email.");
       return;
     }
-    
+
     const newCustPayload = {
       ...quickCustomer,
       storeId: effectiveStoreId,
-      shippingAddress: { address1: '', address2: '', city: '', state: '', zip: '', country: 'US' },
-      billingDifferent: false,
       notes: 'Added from order flow.',
       createdAt: new Date().toISOString()
     };
@@ -543,7 +548,14 @@ const App: React.FC = () => {
       setCustomers((prev: Customer[]) => [mappedSaved as any, ...prev]);
       updateSelectedItem('customerId', mappedSaved.id);
       setIsQuickCustomerOpen(false);
-      setQuickCustomer({ firstName: '', lastName: '', email: '', phone: '' });
+      setQuickCustomer({ 
+        firstName: '', 
+        lastName: '', 
+        email: '', 
+        phone: '', 
+        shippingAddress: { address1: '', address2: '', city: '', state: '', zip: '', country: 'US' },
+        billingAddress: { address1: '', address2: '', city: '', state: '', zip: '', country: 'US' }
+      });
     } catch (err) {
       console.error('Customer create error:', err);
       alert("Database persistence failure.");
@@ -849,150 +861,41 @@ const App: React.FC = () => {
         metadataEntries.push({ label: key.replace(/([A-Z])/g, ' $1').trim(), value: String(val) });
       });
     } else if (isView && displayType.includes('customer')) {
-      // For customer view, show all except id, storeId
-      Object.entries(selectedItem || {}).forEach(([key, val]) => {
-        if (['id', 'storeId'].includes(key) || typeof val === 'object') return;
-        metadataEntries.push({ label: key.replace(/([A-Z])/g, ' $1').trim(), value: String(val) });
-      });
-    } else {
-      metadataEntries = [];
-    }
-
-    const shouldShowEmailInvoiceButton = isView && (
-      displayType.includes('order') ||
-      displayType.includes('invoice') ||
-      displayType.includes('customer')
-    );
-    
-    if (isView) {
-      // Expenses and Net Profit (store only)
-      const isStoreUser = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.EMPLOYEE;
-      const expenses = Array.isArray(selectedItem?.expenses) ? selectedItem.expenses : [];
-      const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-      const taxRate = selectedItem?.salesTaxOverride !== undefined && selectedItem?.salesTaxOverride !== null && selectedItem?.salesTaxOverride !== ''
-        ? Number(selectedItem.salesTaxOverride)
-        : (typeof selectedItem?.taxRate === 'number' ? selectedItem.taxRate : 0);
-      const salesTax = selectedItem?.isNonTaxable ? 0 : ((selectedItem?.amount || 0) * (taxRate || 0) / 100);
-      const netProfit = (selectedItem?.amount || 0) - totalExpenses - salesTax;
-
+      // View customer modal: grouped, read-only layout
+      const shipping = selectedItem?.shippingAddress || {};
+      const billing = selectedItem?.billingAddress || {};
+      const billingDifferent = selectedItem?.billingDifferent;
       return (
-        <div className="space-y-6">
-           <div className="p-10 bg-slate-50 rounded-[32px] border border-slate-100 shadow-inner">
-              <p className="text-[10px] font-black uppercase text-slate-400 mb-4 tracking-widest">Metadata</p>
-              {/* Removed ID from metadata view */}
-              <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                 {metadataEntries.map((entry, index) => (
-                   <div key={`${entry.label}-${index}`} className="flex justify-between border-b border-slate-200/50 pb-2">
-                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{entry.label}</span>
-                     <span className="text-sm font-bold text-slate-800">{entry.value}</span>
-                   </div>
-                 ))}
+        <div className="space-y-10">
+          <FormSection title="Profile" icon={Users}>
+            <div className="space-y-1"><Label>First Name</Label><div className="rounded bg-slate-50 px-3 py-2 text-slate-700">{selectedItem?.firstName || <span className="text-slate-400">—</span>}</div></div>
+            <div className="space-y-1"><Label>Last Name</Label><div className="rounded bg-slate-50 px-3 py-2 text-slate-700">{selectedItem?.lastName || <span className="text-slate-400">—</span>}</div></div>
+            <div className="grid grid-cols-2 gap-2 col-span-2">
+              <div className="space-y-1"><Label>Email</Label><div className="rounded bg-slate-50 px-3 py-2 text-slate-700">{selectedItem?.email || <span className="text-slate-400">—</span>}</div></div>
+              <div className="space-y-1"><Label>Phone</Label><div className="rounded bg-slate-50 px-3 py-2 text-slate-700">{selectedItem?.phone || <span className="text-slate-400">—</span>}</div></div>
+            </div>
+            <div className="space-y-1 col-span-2"><Label>Notes</Label><div className="rounded bg-slate-50 px-3 py-2 text-slate-700 whitespace-pre-line">{selectedItem?.notes || <span className="text-slate-400">—</span>}</div></div>
+          </FormSection>
+          <FormSection title="Shipping Address" icon={Users}>
+            <div className="space-y-1"><Label>Address Line 1</Label><div className="rounded bg-slate-50 px-3 py-2 text-slate-700">{shipping.address1 || <span className="text-slate-400">—</span>}</div></div>
+            <div className="space-y-1"><Label>Address Line 2</Label><div className="rounded bg-slate-50 px-3 py-2 text-slate-700">{shipping.address2 || <span className="text-slate-400">—</span>}</div></div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1"><Label>City</Label><div className="rounded bg-slate-50 px-3 py-2 text-slate-700">{shipping.city || <span className="text-slate-400">—</span>}</div></div>
+              <div className="space-y-1"><Label>State</Label><div className="rounded bg-slate-50 px-3 py-2 text-slate-700">{shipping.state || <span className="text-slate-400">—</span>}</div></div>
+              <div className="space-y-1"><Label>Zip</Label><div className="rounded bg-slate-50 px-3 py-2 text-slate-700">{shipping.zip || <span className="text-slate-400">—</span>}</div></div>
+            </div>
+          </FormSection>
+          {billingDifferent && (
+            <FormSection title="Billing Address" icon={Users}>
+              <div className="space-y-1"><Label>Address Line 1</Label><div className="rounded bg-slate-50 px-3 py-2 text-slate-700">{billing.address1 || <span className="text-slate-400">—</span>}</div></div>
+              <div className="space-y-1"><Label>Address Line 2</Label><div className="rounded bg-slate-50 px-3 py-2 text-slate-700">{billing.address2 || <span className="text-slate-400">—</span>}</div></div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1"><Label>City</Label><div className="rounded bg-slate-50 px-3 py-2 text-slate-700">{billing.city || <span className="text-slate-400">—</span>}</div></div>
+                <div className="space-y-1"><Label>State</Label><div className="rounded bg-slate-50 px-3 py-2 text-slate-700">{billing.state || <span className="text-slate-400">—</span>}</div></div>
+                <div className="space-y-1"><Label>Zip</Label><div className="rounded bg-slate-50 px-3 py-2 text-slate-700">{billing.zip || <span className="text-slate-400">—</span>}</div></div>
               </div>
-              {shouldShowEmailInvoiceButton && (
-                <div className="flex justify-end mt-8">
-                  <button
-                    type="button"
-                    onClick={handleSendInvoiceEmail}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-500 transition-colors"
-                  >
-                    <Mail size={16} /> Email Invoice to Customer
-                  </button>
-                </div>
-              )}
-           </div>
-           {lineItems.length > 0 && (
-             <div className="p-10 bg-white rounded-[32px] border border-slate-100 shadow-sm space-y-4">
-               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-900 border-b border-slate-50 pb-2">Line Items</h4>
-               <div className="overflow-x-auto">
-                 <table className="w-full text-left min-w-[400px]">
-                   <thead>
-                     <tr className="text-[9px] font-black uppercase text-slate-400 border-b border-slate-50">
-                       <th className="pb-2">Item</th>
-                       <th className="text-center pb-2">Qty</th>
-                       <th className="text-right pb-2">Unit</th>
-                       <th className="text-right pb-2">Total</th>
-                     </tr>
-                   </thead>
-                   <tbody>
-                     {lineItems.map(item => (
-                       <tr key={item.id}>
-                         <td className="py-2 text-sm font-bold text-slate-800">{item.productName}</td>
-                         <td className="py-2 text-center text-sm font-bold text-slate-600">{item.quantity}</td>
-                         <td className="py-2 text-right text-sm font-medium text-slate-500">${item.price.toFixed(2)}</td>
-                         <td className="py-2 text-right text-sm font-black text-slate-900">${(item.price * item.quantity).toFixed(2)}</td>
-                       </tr>
-                     ))}
-                   </tbody>
-                 </table>
-               </div>
-               {/* Subtotal, Sales Tax, Total Due */}
-               <div className="pt-4 border-t border-slate-100 flex flex-col items-end gap-1">
-                 <div className="flex gap-8">
-                   <div className="text-right">
-                     <p className="text-[9px] font-black uppercase text-slate-400">Subtotal</p>
-                     <p className="text-lg font-black text-slate-900">${((lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0)) || 0).toFixed(2)}</p>
-                   </div>
-                   <div className="text-right">
-                     <p className="text-[9px] font-black uppercase text-blue-600">Sales Tax</p>
-                     <p className="text-lg font-black text-blue-900">${(selectedItem?.isNonTaxable ? 0 : ((typeof selectedItem?.salesTaxOverride === 'number' ? selectedItem.salesTaxOverride : (typeof selectedItem?.taxRate === 'number' ? selectedItem.taxRate : 0)) * (lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0)) / 100)).toFixed(2)}</p>
-                   </div>
-                   <div className="text-right">
-                     <p className="text-[9px] font-black uppercase text-slate-400">Total Due</p>
-                     <p className="text-2xl font-black text-slate-900">${(selectedItem?.amount || 0).toFixed(2)}</p>
-                   </div>
-                 </div>
-               </div>
-             </div>
-           )}
-
-           {/* Expenses and Net Profit (store only) */}
-           {isStoreUser && (
-             <div className="p-10 bg-white rounded-[32px] border border-slate-100 shadow-sm space-y-4">
-               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-900 border-b border-slate-50 pb-2">Expenses & Net Profit</h4>
-               <div className="space-y-2">
-                 <div className="flex flex-col gap-2">
-                   <div className="flex flex-wrap gap-4">
-                     {expenses.length === 0 && <span className="text-xs text-slate-400 font-bold">No expenses recorded.</span>}
-                     {expenses.map((exp, idx) => (
-                       <div key={exp.id || idx} className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
-                         <span className="text-xs font-black uppercase text-blue-600">{exp.typeName || 'Expense'}</span>
-                         <span className="text-xs font-bold text-slate-800">${exp.amount?.toFixed(2)}</span>
-                         {exp.note && <span className="text-[10px] text-slate-400">{exp.note}</span>}
-                       </div>
-                     ))}
-                   </div>
-                   <div className="flex flex-col md:flex-row gap-4 mt-4">
-                     <div className="flex-1 flex flex-col items-end">
-                       <span className="text-[10px] font-black uppercase text-slate-400">Total Expenses</span>
-                       <span className="text-lg font-black text-rose-600">${totalExpenses.toFixed(2)}</span>
-                     </div>
-                     <div className="flex-1 flex flex-col items-end">
-                       <span className="text-[10px] font-black uppercase text-blue-600">Sales Tax</span>
-                       <span className="text-lg font-black text-blue-600">${salesTax.toFixed(2)}</span>
-                     </div>
-                     <div className="flex-1 flex flex-col items-end">
-                       <span className="text-[10px] font-black uppercase text-slate-400">Net Profit</span>
-                       <span className="text-lg font-black text-emerald-600">${((selectedItem?.amount || 0) - totalExpenses - salesTax).toFixed(2)}</span>
-                     </div>
-                   </div>
-                 </div>
-               </div>
-             </div>
-           )}
-
-           {attachments.length > 0 && (
-             <div className="p-10 bg-white rounded-[32px] border border-slate-100 shadow-sm space-y-4">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-900 border-b border-slate-50 pb-2">Documents</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {attachments.map((att) => (
-                    <div key={att.id} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-2xl group hover:border-blue-500 transition-all">
-                      <span className="text-xs font-bold text-slate-800 truncate" title={att.name}>{att.name}</span>
-                      <button onClick={() => downloadAttachment(att)} className="p-2 text-slate-400 hover:text-blue-600 transition-all"><Download size={14} /></button>
-                    </div>
-                  ))}
-                </div>
-             </div>
-           )}
+            </FormSection>
+          )}
         </div>
       );
     }
@@ -1006,6 +909,32 @@ const App: React.FC = () => {
             <div className="space-y-1 col-span-2"><Label>Email</Label><Input value={selectedItem?.email} onChange={e => updateSelectedItem('email', e.target.value)} /></div>
             <div className="space-y-1 col-span-2"><Label>Phone</Label><Input value={selectedItem?.phone} onChange={e => updateSelectedItem('phone', e.target.value)} /></div>
             <div className="space-y-1 col-span-2"><Label>Notes</Label><Input type="textarea" value={selectedItem?.notes} onChange={e => updateSelectedItem('notes', e.target.value)} /></div>
+            <div className="space-y-1 col-span-2">
+              <Label>Shipping Address</Label>
+              <Input placeholder="Address Line 1" value={selectedItem?.shippingAddress?.address1 || ''} onChange={e => updateSelectedItem('shippingAddress', { ...selectedItem?.shippingAddress, address1: e.target.value })} />
+              <Input placeholder="Address Line 2" value={selectedItem?.shippingAddress?.address2 || ''} onChange={e => updateSelectedItem('shippingAddress', { ...selectedItem?.shippingAddress, address2: e.target.value })} />
+              <div className="grid grid-cols-3 gap-2">
+                <Input placeholder="City" value={selectedItem?.shippingAddress?.city || ''} onChange={e => updateSelectedItem('shippingAddress', { ...selectedItem?.shippingAddress, city: e.target.value })} />
+                <Input placeholder="State" value={selectedItem?.shippingAddress?.state || ''} onChange={e => updateSelectedItem('shippingAddress', { ...selectedItem?.shippingAddress, state: e.target.value })} />
+                <Input placeholder="Zip" value={selectedItem?.shippingAddress?.zip || ''} onChange={e => updateSelectedItem('shippingAddress', { ...selectedItem?.shippingAddress, zip: e.target.value })} />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 my-2 col-span-2">
+              <input type="checkbox" id="modalBillingDifferent" checked={selectedItem?.billingDifferent} onChange={e => updateSelectedItem('billingDifferent', e.target.checked)} />
+              <label htmlFor="modalBillingDifferent" className="text-xs font-medium">Billing address is different than shipping address</label>
+            </div>
+            {selectedItem?.billingDifferent && (
+              <div className="space-y-1 col-span-2">
+                <Label>Billing Address</Label>
+                <Input placeholder="Address Line 1" value={selectedItem?.billingAddress?.address1 || ''} onChange={e => updateSelectedItem('billingAddress', { ...selectedItem?.billingAddress, address1: e.target.value })} />
+                <Input placeholder="Address Line 2" value={selectedItem?.billingAddress?.address2 || ''} onChange={e => updateSelectedItem('billingAddress', { ...selectedItem?.billingAddress, address2: e.target.value })} />
+                <div className="grid grid-cols-3 gap-2">
+                  <Input placeholder="City" value={selectedItem?.billingAddress?.city || ''} onChange={e => updateSelectedItem('billingAddress', { ...selectedItem?.billingAddress, city: e.target.value })} />
+                  <Input placeholder="State" value={selectedItem?.billingAddress?.state || ''} onChange={e => updateSelectedItem('billingAddress', { ...selectedItem?.billingAddress, state: e.target.value })} />
+                  <Input placeholder="Zip" value={selectedItem?.billingAddress?.zip || ''} onChange={e => updateSelectedItem('billingAddress', { ...selectedItem?.billingAddress, zip: e.target.value })} />
+                </div>
+              </div>
+            )}
           </FormSection>
         </div>
       );
@@ -1661,24 +1590,48 @@ const App: React.FC = () => {
     >
       {isQuickCustomerOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in zoom-in-95 duration-200">
-           <div className="bg-white w-full max-w-lg rounded-[32px] shadow-2xl overflow-hidden border border-slate-200">
-              <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
-                 <h4 className="text-xl font-black text-slate-900 tracking-tighter uppercase">Quick Customer Add</h4>
-                 <button onClick={() => setIsQuickCustomerOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={20}/></button>
+            <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
+              <div className="px-4 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h4 className="text-lg font-black text-slate-900 tracking-tighter uppercase">Quick Customer Add</h4>
+                <button onClick={() => setIsQuickCustomerOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={20}/></button>
               </div>
-              <div className="p-8 space-y-4">
+              <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                <div className="grid grid-cols-1 gap-4">
                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1"><Label>First Name</Label><Input value={quickCustomer.firstName} onChange={e => setQuickCustomer((prev: any) => ({...prev, firstName: e.target.value}))}/></div>
-                    <div className="space-y-1"><Label>Last Name</Label><Input value={quickCustomer.lastName} onChange={e => setQuickCustomer((prev: any) => ({...prev, lastName: e.target.value}))}/></div>
+                   <div className="space-y-1"><Label>First Name</Label><Input value={quickCustomer.firstName} onChange={e => setQuickCustomer((prev: any) => ({...prev, firstName: e.target.value}))}/></div>
+                   <div className="space-y-1"><Label>Last Name</Label><Input value={quickCustomer.lastName} onChange={e => setQuickCustomer((prev: any) => ({...prev, lastName: e.target.value}))}/></div>
                  </div>
                  <div className="space-y-1"><Label>Email</Label><Input type="email" value={quickCustomer.email} onChange={e => setQuickCustomer((prev: any) => ({...prev, email: e.target.value}))}/></div>
                  <div className="space-y-1"><Label>Phone</Label><Input type="tel" value={quickCustomer.phone} onChange={e => setQuickCustomer((prev: any) => ({...prev, phone: e.target.value}))}/></div>
+                   <div className="space-y-1">
+                      <Label>Shipping Address</Label>
+                      <Input placeholder="Address Line 1" value={quickCustomer.shippingAddress.address1} onChange={e => setQuickCustomer((prev: any) => ({...prev, shippingAddress: {...prev.shippingAddress, address1: e.target.value}}))}/>
+                      <Input placeholder="Address Line 2" value={quickCustomer.shippingAddress.address2} onChange={e => setQuickCustomer((prev: any) => ({...prev, shippingAddress: {...prev.shippingAddress, address2: e.target.value}}))}/>
+                      <Input placeholder="City" value={quickCustomer.shippingAddress.city} onChange={e => setQuickCustomer((prev: any) => ({...prev, shippingAddress: {...prev.shippingAddress, city: e.target.value}}))}/>
+                      <Input placeholder="State" value={quickCustomer.shippingAddress.state} onChange={e => setQuickCustomer((prev: any) => ({...prev, shippingAddress: {...prev.shippingAddress, state: e.target.value}}))}/>
+                      <Input placeholder="Zip" value={quickCustomer.shippingAddress.zip} onChange={e => setQuickCustomer((prev: any) => ({...prev, shippingAddress: {...prev.shippingAddress, zip: e.target.value}}))}/>
+                   </div>
+                   <div className="flex items-center gap-2 my-2">
+                      <input type="checkbox" id="billingDifferent" checked={quickCustomer.billingDifferent} onChange={e => setQuickCustomer((prev: any) => ({...prev, billingDifferent: e.target.checked}))} />
+                      <label htmlFor="billingDifferent" className="text-xs font-medium">Billing address is different than shipping address</label>
+                   </div>
+                   {quickCustomer.billingDifferent && (
+                     <div className="space-y-1">
+                        <Label>Billing Address</Label>
+                        <Input placeholder="Address Line 1" value={quickCustomer.billingAddress?.address1} onChange={e => setQuickCustomer((prev: any) => ({...prev, billingAddress: {...prev.billingAddress, address1: e.target.value}}))}/>
+                        <Input placeholder="Address Line 2" value={quickCustomer.billingAddress?.address2} onChange={e => setQuickCustomer((prev: any) => ({...prev, billingAddress: {...prev.billingAddress, address2: e.target.value}}))}/>
+                        <Input placeholder="City" value={quickCustomer.billingAddress?.city} onChange={e => setQuickCustomer((prev: any) => ({...prev, billingAddress: {...prev.billingAddress, city: e.target.value}}))}/>
+                        <Input placeholder="State" value={quickCustomer.billingAddress?.state} onChange={e => setQuickCustomer((prev: any) => ({...prev, billingAddress: {...prev.billingAddress, state: e.target.value}}))}/>
+                        <Input placeholder="Zip" value={quickCustomer.billingAddress?.zip} onChange={e => setQuickCustomer((prev: any) => ({...prev, billingAddress: {...prev.billingAddress, zip: e.target.value}}))}/>
+                     </div>
+                   )}
+                </div>
               </div>
-              <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-                 <button onClick={() => setIsQuickCustomerOpen(false)} className="px-6 py-2 text-xs font-bold text-slate-500 uppercase">Cancel</button>
-                 <button onClick={handleQuickCustomerSave} className="px-8 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-blue-500/20">Add Customer</button>
+              <div className="px-4 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                <button onClick={() => setIsQuickCustomerOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Cancel</button>
+                <button onClick={handleQuickCustomerSave} className="px-6 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-blue-500/20">Add Customer</button>
               </div>
-           </div>
+            </div>
         </div>
       )}
 

@@ -30,7 +30,8 @@ export const customersService = {
       last_name: customer.lastName,
       email: customer.email,
       phone: customer.phone,
-      shipping_address: customer.shippingAddress
+      shipping_address: customer.shippingAddress,
+      billing_address: customer.billingAddress
     }]).select();
     
     if (error) throw error;
@@ -43,7 +44,8 @@ export const customersService = {
       last_name: customer.lastName,
       email: customer.email,
       phone: customer.phone,
-      shipping_address: customer.shippingAddress
+      shipping_address: customer.shippingAddress,
+      billing_address: customer.billingAddress
     }).eq('id', id);
     if (error) throw error;
   },
