@@ -326,6 +326,8 @@ export const db = {
       return (data || []).map(mapToCamel);
     },
     async create(order: any) {
+      console.log('[supabase.ts] Payload sent to orders.create:', order);
+      console.log('[supabase.ts] order.taxRate =', order.taxRate);
       const { data, error } = await supabase.from('orders').insert([{
         store_id: order.storeId,
         customer_id: order.customerId,
@@ -336,12 +338,15 @@ export const db = {
         tax_rate: order.taxRate,
         is_non_taxable: order.isNonTaxable,
         notes: order.notes,
-        attachments: order.attachments
+        attachments: order.attachments,
+        expenses: order.expenses
       }]).select();
       if (error) throw error;
       return mapToCamel(data[0]);
     },
     async update(id: string, order: any) {
+      console.log('[supabase.ts] Payload sent to orders.update:', order);
+      console.log('[supabase.ts] order.taxRate =', order.taxRate);
       const { error } = await supabase.from('orders').update({
         customer_id: order.customerId,
         amount: order.amount,
@@ -351,7 +356,8 @@ export const db = {
         tax_rate: order.taxRate,
         is_non_taxable: order.isNonTaxable,
         notes: order.notes,
-        attachments: order.attachments
+        attachments: order.attachments,
+        expenses: order.expenses
       }).eq('id', id);
       if (error) throw error;
     },

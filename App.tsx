@@ -597,31 +597,50 @@ const App: React.FC = () => {
     }
     
     try {
-          if (selectedItem?.id && !selectedItem.id.toString().startsWith('gen-')) {
-            const updatePromises = [];
-            if (displayType.includes('lead')) {
-              updatePromises.push(db.leads.update(selectedItem.id, selectedItem));
-              updatePromises.push(setLeads((prev: Lead[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
-            } else if (displayType.includes('customer')) {
-              updatePromises.push(db.customers.update(selectedItem.id, selectedItem));
-              updatePromises.push(setCustomers((prev: Customer[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
-            } else if (displayType.includes('event')) {
-              updatePromises.push(db.planner.update(selectedItem.id, selectedItem));
-              updatePromises.push(setEvents((prev: PlannerEvent[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
-            } else if (displayType.includes('claim')) {
-              updatePromises.push(db.claims.update(selectedItem.id, selectedItem));
-              updatePromises.push(setClaims((prev: Claim[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
-            } else if (displayType.includes('store')) {
-              updatePromises.push(db.stores.update(selectedItem.id, selectedItem));
-              updatePromises.push(setStores((prev: CabinetStore[]) => prev.map((s) => s.id === selectedItem.id ? { ...s, ...selectedItem } : s)));
-            } else if (displayType.includes('order') || displayType.includes('quote') || displayType.includes('invoice') || displayType.includes('sale')) {
-              updatePromises.push(db.orders.update(selectedItem.id, selectedItem));
-              updatePromises.push(setOrders((prev: Order[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
-            } else if (displayType.includes('inventory')) {
-              updatePromises.push(db.inventory.update(selectedItem.id, selectedItem));
-              updatePromises.push(setInventory((prev: InventoryItem[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
-            }
-            await Promise.all(updatePromises);
+      // Helper to get the global sales tax rate for the current store
+      const getDefaultTaxRate = async () => {
+        const storesList = stores && stores.length ? stores : await db.stores.list();
+        const store = storesList.find(s => s.id === effectiveStoreId);
+        return store && typeof store.salesTax === 'number' ? store.salesTax : 0;
+      };
+
+      if (selectedItem?.id && !selectedItem.id.toString().startsWith('gen-')) {
+        const updatePromises = [];
+        if (displayType.includes('lead')) {
+          updatePromises.push(db.leads.update(selectedItem.id, selectedItem));
+          updatePromises.push(setLeads((prev: Lead[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
+        } else if (displayType.includes('customer')) {
+          updatePromises.push(db.customers.update(selectedItem.id, selectedItem));
+          updatePromises.push(setCustomers((prev: Customer[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
+        } else if (displayType.includes('event')) {
+          updatePromises.push(db.planner.update(selectedItem.id, selectedItem));
+          updatePromises.push(setEvents((prev: PlannerEvent[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
+        } else if (displayType.includes('claim')) {
+          updatePromises.push(db.claims.update(selectedItem.id, selectedItem));
+          updatePromises.push(setClaims((prev: Claim[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
+        } else if (displayType.includes('store')) {
+          updatePromises.push(db.stores.update(selectedItem.id, selectedItem));
+          updatePromises.push(setStores((prev: CabinetStore[]) => prev.map((s) => s.id === selectedItem.id ? { ...s, ...selectedItem } : s)));
+        } else if (displayType.includes('order') || displayType.includes('quote') || displayType.includes('invoice') || displayType.includes('sale')) {
+          // Patch: Ensure taxRate is set to global sales tax if no override
+          let patched = { ...selectedItem };
+          if (
+            (patched.salesTaxOverride === undefined || patched.salesTaxOverride === null || patched.salesTaxOverride === '') &&
+            (patched.taxRate === undefined || patched.taxRate === null || patched.taxRate === '')
+          ) {
+            patched.taxRate = await getDefaultTaxRate();
+          } else if (
+            patched.salesTaxOverride !== undefined && patched.salesTaxOverride !== null && patched.salesTaxOverride !== ''
+          ) {
+            patched.taxRate = Number(patched.salesTaxOverride);
+          }
+          updatePromises.push(db.orders.update(selectedItem.id, patched));
+          updatePromises.push(setOrders((prev: Order[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...patched } : item)));
+        } else if (displayType.includes('inventory')) {
+          updatePromises.push(db.inventory.update(selectedItem.id, selectedItem));
+          updatePromises.push(setInventory((prev: InventoryItem[]) => prev.map((item) => item.id === selectedItem.id ? { ...item, ...selectedItem } : item)));
+        }
+        await Promise.all(updatePromises);
       } else {
         if (displayType.includes('store')) {
           const name = (selectedItem.name || '').trim();
@@ -632,8 +651,23 @@ const App: React.FC = () => {
           }
         }
 
-        const newItemPayload = { ...selectedItem, storeId: effectiveStoreId };
-        
+        let newItemPayload = { ...selectedItem, storeId: effectiveStoreId };
+        // Patch: Ensure taxRate is set to global sales tax if no override
+        if (
+          (displayType.includes('order') || displayType.includes('quote') || displayType.includes('invoice') || displayType.includes('sale'))
+        ) {
+          if (
+            (newItemPayload.salesTaxOverride === undefined || newItemPayload.salesTaxOverride === null || newItemPayload.salesTaxOverride === '') &&
+            (newItemPayload.taxRate === undefined || newItemPayload.taxRate === null || newItemPayload.taxRate === '')
+          ) {
+            newItemPayload.taxRate = await getDefaultTaxRate();
+          } else if (
+            newItemPayload.salesTaxOverride !== undefined && newItemPayload.salesTaxOverride !== null && newItemPayload.salesTaxOverride !== ''
+          ) {
+            newItemPayload.taxRate = Number(newItemPayload.salesTaxOverride);
+          }
+        }
+
         if (displayType.includes('lead')) {
           const saved = await db.leads.create(newItemPayload);
           setLeads((prev: Lead[]) => [saved as any, ...prev]);
@@ -891,11 +925,22 @@ const App: React.FC = () => {
                    </tbody>
                  </table>
                </div>
-               <div className="pt-4 border-t border-slate-100 flex justify-end">
-                  <div className="text-right">
-                    <p className="text-[9px] font-black uppercase text-slate-400">Total Due</p>
-                    <p className="text-2xl font-black text-slate-900">${(selectedItem?.amount || 0).toFixed(2)}</p>
-                  </div>
+               {/* Subtotal, Sales Tax, Total Due */}
+               <div className="pt-4 border-t border-slate-100 flex flex-col items-end gap-1">
+                 <div className="flex gap-8">
+                   <div className="text-right">
+                     <p className="text-[9px] font-black uppercase text-slate-400">Subtotal</p>
+                     <p className="text-lg font-black text-slate-900">${((lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0)) || 0).toFixed(2)}</p>
+                   </div>
+                   <div className="text-right">
+                     <p className="text-[9px] font-black uppercase text-blue-600">Sales Tax</p>
+                     <p className="text-lg font-black text-blue-900">${(selectedItem?.isNonTaxable ? 0 : ((typeof selectedItem?.salesTaxOverride === 'number' ? selectedItem.salesTaxOverride : (typeof selectedItem?.taxRate === 'number' ? selectedItem.taxRate : 0)) * (lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0)) / 100)).toFixed(2)}</p>
+                   </div>
+                   <div className="text-right">
+                     <p className="text-[9px] font-black uppercase text-slate-400">Total Due</p>
+                     <p className="text-2xl font-black text-slate-900">${(selectedItem?.amount || 0).toFixed(2)}</p>
+                   </div>
+                 </div>
                </div>
              </div>
            )}
@@ -922,12 +967,12 @@ const App: React.FC = () => {
                        <span className="text-lg font-black text-rose-600">${totalExpenses.toFixed(2)}</span>
                      </div>
                      <div className="flex-1 flex flex-col items-end">
-                       <span className="text-[10px] font-black uppercase text-slate-400">Sales Tax</span>
+                       <span className="text-[10px] font-black uppercase text-blue-600">Sales Tax</span>
                        <span className="text-lg font-black text-blue-600">${salesTax.toFixed(2)}</span>
                      </div>
                      <div className="flex-1 flex flex-col items-end">
                        <span className="text-[10px] font-black uppercase text-slate-400">Net Profit</span>
-                       <span className="text-lg font-black text-emerald-600">${netProfit.toFixed(2)}</span>
+                       <span className="text-lg font-black text-emerald-600">${((selectedItem?.amount || 0) - totalExpenses - salesTax).toFixed(2)}</span>
                      </div>
                    </div>
                  </div>
@@ -1127,7 +1172,11 @@ const App: React.FC = () => {
                       value={exp.typeId}
                       onChange={e => {
                         const updated = [...(selectedItem.expenses || [])];
-                        updated[idx] = { ...exp, typeId: e.target.value };
+                        let typeName = '';
+                        if (e.target.value === 'exp-1') typeName = 'Shipping';
+                        else if (e.target.value === 'exp-2') typeName = 'Labor';
+                        else if (e.target.value === 'exp-3') typeName = 'Materials';
+                        updated[idx] = { ...exp, typeId: e.target.value, typeName };
                         updateSelectedItem('expenses', updated);
                       }}
                       className="w-32"
@@ -1223,10 +1272,8 @@ const App: React.FC = () => {
           {Array.isArray(selectedItem.expenses) && selectedItem.expenses.length > 0 && (
             (() => {
               const totalExpenses = selectedItem.expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-              const taxRate = selectedItem.salesTaxOverride !== undefined && selectedItem.salesTaxOverride !== null && selectedItem.salesTaxOverride !== ''
-                ? Number(selectedItem.salesTaxOverride)
-                : (typeof selectedItem.taxRate === 'number' ? selectedItem.taxRate : 0);
-              const salesTax = selectedItem.isNonTaxable ? 0 : ((selectedItem.amount || 0) * (taxRate || 0) / 100);
+              // Use the same tax value as the Revenue section above
+              const salesTax = selectedItem.tax || 0;
               const netProfit = (selectedItem.amount || 0) - totalExpenses - salesTax;
               return (
                 <div className="bg-emerald-50 p-6 rounded-[24px] flex flex-col md:flex-row justify-between items-center shadow-lg">
@@ -1447,12 +1494,15 @@ const App: React.FC = () => {
           <FilterBar query={tableSearch} setQuery={setTableSearch} filter={tableFilter} setFilter={setTableFilter} options={[{ value: 'all', label: 'All Accounts' }]} />
           <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-left min-w-[800px]">
+              <table className="w-full text-left min-w-[900px]">
                 <thead className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
                   <tr>
-                    <th className="px-8 py-4">Account Holder</th>
+                    <th className="px-8 py-4">First Name</th>
+                    <th className="px-8 py-4">Last Name</th>
+                    <th className="px-8 py-4">Email</th>
+                    <th className="px-8 py-4">Phone</th>
+                    <th className="px-8 py-4">Created At</th>
                     {selectedAdminStoreId === 'all' && currentUser.role === UserRole.ADMIN && <th className="px-8 py-4">Tenant</th>}
-                    <th className="px-8 py-4">Email Gateway</th>
                     <th className="px-8 py-4 text-right">Action</th>
                   </tr>
                 </thead>
@@ -1461,11 +1511,14 @@ const App: React.FC = () => {
                     const tenant = stores.find(s => s.id === c.storeId);
                     return (
                       <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-8 py-4"><p className="text-sm font-bold text-slate-800">{c.firstName} {c.lastName}</p><p className="text-[10px] text-slate-400 font-mono">ID: {c.id.slice(-6)}</p></td>
+                        <td className="px-8 py-4 text-sm font-bold text-slate-800">{c.firstName}</td>
+                        <td className="px-8 py-4 text-sm font-bold text-slate-800">{c.lastName}</td>
+                        <td className="px-8 py-4 text-sm text-blue-600 font-bold">{c.email}</td>
+                        <td className="px-8 py-4 text-sm text-slate-800">{c.phone || '-'}</td>
+                        <td className="px-8 py-4 text-sm text-slate-500">{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '-'}</td>
                         {selectedAdminStoreId === 'all' && currentUser.role === UserRole.ADMIN && (
                           <td className="px-8 py-4"><span className="text-[10px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-100">{tenant?.name || 'Unknown'}</span></td>
                         )}
-                        <td className="px-8 py-4 text-sm text-blue-600 font-bold">{c.email}</td>
                         <td className="px-8 py-4">{renderTableActions(['view', 'edit', 'delete'], 'Customer', c)}</td>
                       </tr>
                     );
@@ -1477,7 +1530,6 @@ const App: React.FC = () => {
         </div>
       );
       case 'sales-orders':
-      case 'sales-invoices':
       case 'sales-quotes': {
         const statusFilter = activeTab === 'sales-quotes' ? 'Quote' : activeTab === 'sales-invoices' ? 'Invoiced' : 'Processing';
         const displayLabel = activeTab === 'sales-quotes' ? 'Quote' : activeTab === 'sales-invoices' ? 'Invoice' : 'Order';
