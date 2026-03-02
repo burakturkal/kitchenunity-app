@@ -13,6 +13,5 @@ app.use('/api', quickbooksAuth);
 app.use('/api', quickbooksData);
 app.use('/api', quickbooksWebhook);
 
-app.listen(4000, () => {
-  console.log('Server running on port 4000');
-});
+// Export the Express app for serverless adapters (do not call listen here)
+export default app;
