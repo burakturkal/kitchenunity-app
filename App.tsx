@@ -1457,15 +1457,23 @@ const App: React.FC = () => {
                               // Get OAuth URL from Worker which has access to Cloudflare secrets
                               try {
                                 const res = await fetch('/connect');
-                                const { authUrl } = await res.json();
+                                if (!res.ok) {
+                                  const text = await res.text();
+                                  console.error('OAuth endpoint error:', res.status, text);
+                                  alert(`OAuth endpoint error: ${res.status}. Check console for details.`);
+                                  return;
+                                }
+                                const data = await res.json();
+                                const { authUrl } = data;
                                 if (!authUrl) {
+                                  console.error('No authUrl in response:', data);
                                   alert('Failed to get OAuth URL from QuickBooks.');
                                   return;
                                 }
                                 window.location.href = authUrl;
                               } catch (error) {
-                                console.error('Error getting OAuth URL:', error);
-                                alert('Failed to connect to QuickBooks. Please try again.');
+                                console.error('Error getting OAuth URL:', error instanceof Error ? error.message : error);
+                                alert(`Failed to connect to QuickBooks: ${error instanceof Error ? error.message : 'Unknown error'}`);
                               }
                             }}
                           >
