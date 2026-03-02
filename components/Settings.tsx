@@ -304,7 +304,7 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
                     onClick={async () => {
                       // Get OAuth URL from Worker which has access to Cloudflare secrets
                       try {
-                        const res = await fetch('/connect');
+                        const res = await fetch('https://kitchenunity-app.kitchenunityservices.workers.dev/connect');
                         if (!res.ok) {
                           const text = await res.text();
                           console.error('OAuth endpoint error:', res.status, text);
@@ -375,7 +375,7 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
               onClick={async () => {
                 // Get OAuth URL from Worker which has access to Cloudflare secrets
                 try {
-                  const res = await fetch('/connect');
+                  const res = await fetch('https://kitchenunity-app.kitchenunityservices.workers.dev/connect');
                   if (!res.ok) {
                     const text = await res.text();
                     console.error('OAuth endpoint error:', res.status, text);
