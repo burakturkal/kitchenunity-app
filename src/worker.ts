@@ -209,6 +209,18 @@ export default {
 
     try {
       // Route handlers
+        // Add /connect route for QuickBooks OAuth
+        if (pathname === '/connect' && method === 'GET') {
+          // Build QuickBooks OAuth URL
+          const qbAuthUrl =
+            'https://appcenter.intuit.com/connect/oauth2' +
+            '?client_id=' + encodeURIComponent(env.QB_CLIENT_ID) +
+            '&redirect_uri=' + encodeURIComponent(env.QB_REDIRECT_URI) +
+            '&response_type=code' +
+            '&scope=' + encodeURIComponent('com.intuit.quickbooks.accounting openid profile email phone address') +
+            '&state=' + encodeURIComponent('state123');
+          return Response.redirect(qbAuthUrl, 302);
+        }
       if (pathname === '/api/quickbooks/app-info' && method === 'GET') {
         return await getAppInfo(env);
       } else if (pathname === '/api/quickbooks/app-info' && method === 'POST') {
