@@ -2,7 +2,7 @@
 // Express endpoint for QuickBooks webhooks (real-time sync)
 
 import express from 'express';
-import { stores } from './services/supabase';
+import { db } from './services/supabase';
 // TODO: Add logic to process webhook events and update your app DB
 
 const router = express.Router();
