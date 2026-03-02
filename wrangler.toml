@@ -1,0 +1,15 @@
+name = "quickbooks-oauth-worker"
+main = "src/worker.ts"
+type = "service"
+compatibility_date = "2024-01-01"
+
+# Set your custom domain in Cloudflare dashboard after deploying
+# Default URL: https://quickbooks-oauth-worker.{your-account}.workers.dev
+
+# Environment variables and secrets are configured in the Cloudflare dashboard
+# Required secrets:
+# - SUPABASE_URL: Your Supabase project URL
+# - SUPABASE_KEY: Your Supabase anon key
+# - QB_CLIENT_ID: QuickBooks OAuth client ID
+# - QB_CLIENT_SECRET: QuickBooks OAuth client secret
+# - QB_REDIRECT_URI: Your worker's callback URL from QuickBooks app settings

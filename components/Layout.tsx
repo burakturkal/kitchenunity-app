@@ -144,7 +144,7 @@ const Layout: React.FC<LayoutProps> = ({
         </nav>
 
         <div className="p-5 border-t border-slate-200 space-y-3">
-          {isSidebarOpen && (
+          {isSidebarOpen && currentUser.role === UserRole.ADMIN && (
             <div className="grid grid-cols-3 gap-1 mb-4 p-1 bg-slate-100 rounded-lg">
               <button 
                 onClick={() => onRoleSwitch(UserRole.ADMIN)} 
