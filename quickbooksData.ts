@@ -3,7 +3,7 @@
 
 import express from 'express';
 import { getQuickBooksData, pushQuickBooksData } from './services/quickbooks.service';
-import { stores } from './services/supabase';
+import { db } from './services/supabase';
 
 const router = express.Router();
 
@@ -12,7 +12,7 @@ const router = express.Router();
 
 router.get('/quickbooks/:realmId/:resource', async (req, res) => {
   const { realmId, resource } = req.params;
-  const tokenData = await stores.getQuickBooksToken(realmId);
+  const tokenData = await db.stores.getQuickBooksToken(realmId);
   const accessToken = tokenData?.access_token;
   try {
     const data = await getQuickBooksData(realmId, accessToken, resource);
@@ -24,7 +24,7 @@ router.get('/quickbooks/:realmId/:resource', async (req, res) => {
 
 router.post('/quickbooks/:realmId/:resource', async (req, res) => {
   const { realmId, resource } = req.params;
-  const tokenData = await stores.getQuickBooksToken(realmId);
+  const tokenData = await db.stores.getQuickBooksToken(realmId);
   const accessToken = tokenData?.access_token;
   const data = req.body;
   try {
