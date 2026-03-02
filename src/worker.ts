@@ -219,7 +219,10 @@ export default {
             '&response_type=code' +
             '&scope=' + encodeURIComponent('com.intuit.quickbooks.accounting openid profile email phone address') +
             '&state=' + encodeURIComponent('state123');
-          return Response.redirect(qbAuthUrl, 302);
+          return new Response(JSON.stringify({ authUrl: qbAuthUrl }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          });
         }
       if (pathname === '/api/quickbooks/app-info' && method === 'GET') {
         return await getAppInfo(env);

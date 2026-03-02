@@ -302,9 +302,19 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
                   <button
                     className="px-6 py-3 bg-green-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-green-700 transition-all"
                     onClick={async () => {
-                      // Start QuickBooks OAuth flow
-                      const authUrl = `https://appcenter.intuit.com/connect/oauth2?client_id=${qbClientId}&redirect_uri=${encodeURIComponent(qbRedirectUri)}&response_type=code&scope=com.intuit.quickbooks.accounting&state=${storeId}`;
-                      window.location.href = authUrl;
+                      // Get OAuth URL from Worker which has access to Cloudflare secrets
+                      try {
+                        const res = await fetch('/connect');
+                        const { authUrl } = await res.json();
+                        if (!authUrl) {
+                          alert('Failed to get OAuth URL from QuickBooks.');
+                          return;
+                        }
+                        window.location.href = authUrl;
+                      } catch (error) {
+                        console.error('Error getting OAuth URL:', error);
+                        alert('Failed to connect to QuickBooks. Please try again.');
+                      }
                     }}
                   >
                     {isQbConnected ? 'Connected to QuickBooks' : 'Connect to QuickBooks'}
@@ -354,9 +364,20 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
             <Label>Connect your store to QuickBooks</Label>
             <button
               className="px-6 py-3 bg-green-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-green-500 transition-colors"
-              onClick={() => {
-                const authUrl = `https://appcenter.intuit.com/connect/oauth2?client_id=${qbClientId}&redirect_uri=${encodeURIComponent(qbRedirectUri)}&response_type=code&scope=com.intuit.quickbooks.accounting&state=${storeId}`;
-                window.location.href = authUrl;
+              onClick={async () => {
+                // Get OAuth URL from Worker which has access to Cloudflare secrets
+                try {
+                  const res = await fetch('/connect');
+                  const { authUrl } = await res.json();
+                  if (!authUrl) {
+                    alert('Failed to get OAuth URL from QuickBooks.');
+                    return;
+                  }
+                  window.location.href = authUrl;
+                } catch (error) {
+                  console.error('Error getting OAuth URL:', error);
+                  alert('Failed to connect to QuickBooks. Please try again.');
+                }
               }}
             >
               {isQbConnected ? 'Connected to QuickBooks' : 'Connect to QuickBooks'}
