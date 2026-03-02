@@ -1448,7 +1448,26 @@ const App: React.FC = () => {
                         {selectedAdminStoreId === 'all' && currentUser.role === UserRole.ADMIN && (
                           <td className="px-8 py-4"><span className="text-[10px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-100">{tenant?.name || 'Unknown'}</span></td>
                         )}
-                        <td className="px-8 py-4">{renderTableActions(['view', 'edit', 'delete'], 'Customer', c)}</td>
+                        <td className="px-8 py-4 flex gap-2 justify-end">
+                          {renderTableActions(['view', 'edit', 'delete'], 'Customer', c)}
+                          <button
+                            className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-green-700 transition-all"
+                            title="Connect QuickBooks"
+                            onClick={async () => {
+                              // Fetch app info from backend
+                              const res = await fetch('/api/quickbooks/app-info');
+                              const { appInfo } = await res.json();
+                              if (!appInfo?.client_id || !appInfo?.redirect_uri) {
+                                alert('QuickBooks app info not configured.');
+                                return;
+                              }
+                              const authUrl = `https://appcenter.intuit.com/connect/oauth2?client_id=${appInfo.client_id}&redirect_uri=${encodeURIComponent(appInfo.redirect_uri)}&response_type=code&scope=com.intuit.quickbooks.accounting&state=${c.storeId}`;
+                              window.location.href = authUrl;
+                            }}
+                          >
+                            QuickBooks OAuth
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}

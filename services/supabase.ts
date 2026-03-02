@@ -119,6 +119,18 @@ export const db = {
       }).eq('id', id);
       if (error) throw error;
     },
+
+    async saveQuickBooksToken(storeId: string, tokenData: any) {
+      // Save tokenData in Supabase for the store
+      const { error } = await supabase.from('stores').update({ quickbooks_token: tokenData }).eq('id', storeId);
+      if (error) throw error;
+    },
+
+    async getQuickBooksToken(storeId: string) {
+      const { data, error } = await supabase.from('stores').select('quickbooks_token').eq('id', storeId).maybeSingle();
+      if (error) throw error;
+      return data?.quickbooks_token || null;
+    },
     async delete(id: string) {
       const { error } = await supabase.from('stores').delete().eq('id', id);
       if (error) throw error;
@@ -367,6 +379,27 @@ export const db = {
     },
     async delete(id: string) {
       const { error } = await supabase.from('orders').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+  quickbooksAppSettings: {
+    async get() {
+      const { data, error } = await supabase.from('quickbooks_app_settings').select('*').order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (error) throw error;
+      return data || null;
+    },
+    async save({ clientId, clientSecret, redirectUri }: { clientId: string; clientSecret: string; redirectUri: string }) {
+      // Upsert the credentials (single row table)
+      const { data, error } = await supabase.from('quickbooks_app_settings').upsert({
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri
+      }, { onConflict: 'client_id' }).select();
+      if (error) throw error;
+      return data?.[0] || null;
+    },
+    async delete() {
+      const { error } = await supabase.from('quickbooks_app_settings').delete();
       if (error) throw error;
     }
   },
