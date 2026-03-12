@@ -1,102 +1,142 @@
 import React, { useState, useEffect } from 'react';
-import { Code, Copy, CheckCircle, Plus, Trash2, ToggleLeft, ToggleRight, AlertCircle, RefreshCw } from 'lucide-react';
-import { EmbedToken, CabinetStore } from '../types';
-import { db } from '../services/supabase';
+import { Code, Copy, CheckCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { CabinetStore } from '../types';
 
 const API_BASE = 'https://api.cabopspro.com';
+
+const DEFAULT_HTML = `<form style="display:flex;flex-direction:column;gap:12px;max-width:480px;padding:28px 32px;background:#fff;border-radius:14px;border:1.5px solid #e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.07);">
+  <h3 style="margin:0 0 4px;font-size:18px;font-weight:800;color:#0f172a;letter-spacing:-.4px;">Get in Touch</h3>
+  <p style="margin:0 0 8px;font-size:12px;color:#64748b;">Fill out the form and we will get back to you shortly.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <input name="firstName" placeholder="First Name *" required style="padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+    <input name="lastName" placeholder="Last Name" style="padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+  </div>
+  <input name="email" type="email" placeholder="Email *" required style="padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+  <input name="phone" type="tel" placeholder="Phone" style="padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+  <textarea name="message" placeholder="Tell us about your project..." rows="4" style="padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;resize:vertical;font-family:inherit;"></textarea>
+
+  <button type="submit" style="padding:13px;background:#1e3a8a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:.08em;font-family:inherit;">Send Message</button>
+  <div id="ku-msg" style="display:none;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:700;"></div>
+</form>`;
+
+function buildEmbedSnippet(storeId: string, storeName: string, html: string): string {
+  // Unique container ID per generation so multiple forms can coexist on one page
+  const uid = `ku-${storeId.slice(0, 8)}-${Date.now().toString(36)}`;
+
+  return `<!-- KitchenUnity Lead Form | ${storeName} -->
+<div id="${uid}">${html}</div>
+<script>
+(function(){
+  var ROOT=document.getElementById('${uid}');
+  var STORE_ID='${storeId}';
+  var API='${API_BASE}/api/embed/submit';
+  var form=ROOT.querySelector('form');
+  if(!form){console.error('[KU Embed] No <form> element found in embed block.');return;}
+
+  /* Honeypot — hidden from humans, filled by bots */
+  var hp=document.createElement('input');
+  hp.type='text';hp.name='_hp';hp.tabIndex=-1;hp.autocomplete='off';
+  hp.style.cssText='position:absolute;left:-9999px;height:0;opacity:0;';
+  form.appendChild(hp);
+
+  /* Success / error message element — use existing #ku-msg if present */
+  var msg=ROOT.querySelector('#ku-msg')||ROOT.querySelector('.ku-msg');
+  if(!msg){msg=document.createElement('div');msg.style.cssText='margin-top:10px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:700;display:none;font-family:inherit;';form.appendChild(msg);}
+
+  function showMsg(text,ok){
+    msg.textContent=text;
+    msg.style.display='block';
+    msg.style.background=ok?'#f0fdf4':'#fef2f2';
+    msg.style.color=ok?'#16a34a':'#dc2626';
+    msg.style.border=ok?'1px solid #bbf7d0':'1px solid #fecaca';
+  }
+
+  var btn=form.querySelector('button[type=submit]');
+
+  form.addEventListener('submit',function(e){
+    e.preventDefault();
+    /* Collect all named inputs */
+    var data={storeId:STORE_ID,_hp:hp.value,source:'Embedded Form'};
+    form.querySelectorAll('input,textarea,select').forEach(function(el){
+      if(el.name&&el.name!=='_hp')data[el.name]=el.value.trim();
+    });
+    /* Client-side guard */
+    var hasName=data.firstName||data.lastName||data.name;
+    if(!hasName&&!data.email&&!data.phone){
+      showMsg('Please fill in at least your name and email.',false);return;
+    }
+    if(btn){btn.disabled=true;btn.textContent='Sending...';}
+    msg.style.display='none';
+    fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.ok){
+        form.reset();
+        showMsg('Message received! We will be in touch soon.',true);
+        if(btn){btn.textContent='Sent!';setTimeout(function(){btn.disabled=false;btn.textContent='Send Message';},6000);}
+      }else{
+        showMsg(d.error||'Something went wrong. Please try again.',false);
+        if(btn){btn.disabled=false;btn.textContent='Send Message';}
+      }
+    })
+    .catch(function(){
+      showMsg('Network error. Please check your connection.',false);
+      if(btn){btn.disabled=false;btn.textContent='Send Message';}
+    });
+  });
+})();
+</script>`;
+}
 
 interface EmbedCodeGeneratorProps {
   stores: CabinetStore[];
 }
 
-const Label = ({ children }: { children?: React.ReactNode }) => (
-  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
-    {children}
-  </label>
-);
-
 const EmbedCodeGenerator: React.FC<EmbedCodeGeneratorProps> = ({ stores }) => {
   const [selectedStoreId, setSelectedStoreId] = useState(stores[0]?.id || '');
-  const [tokens, setTokens] = useState<EmbedToken[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [newLabel, setNewLabel] = useState('');
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [previewToken, setPreviewToken] = useState<EmbedToken | null>(null);
+  const [html, setHtml] = useState('');
+  const [generatedSnippet, setGeneratedSnippet] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
+  // Load saved HTML from localStorage when store changes
   useEffect(() => {
     if (!selectedStoreId) return;
-    loadTokens(selectedStoreId);
+    const saved = localStorage.getItem(`ku_embed_html_${selectedStoreId}`);
+    setHtml(saved ?? DEFAULT_HTML);
+    setGeneratedSnippet('');
+    setCopied(false);
   }, [selectedStoreId]);
 
-  async function loadTokens(storeId: string) {
-    setLoading(true);
-    setError(null);
-    try {
-      const list = await db.embedTokens.listByStore(storeId);
-      setTokens(list as EmbedToken[]);
-    } catch (err: any) {
-      setError('Could not load embed tokens. Make sure the embed_tokens table exists in Supabase.');
-    } finally {
-      setLoading(false);
-    }
+  function handleGenerate() {
+    const store = stores.find(s => s.id === selectedStoreId);
+    if (!store || !html.trim()) return;
+    // Persist the HTML so the superadmin can come back and edit
+    localStorage.setItem(`ku_embed_html_${selectedStoreId}`, html);
+    setGeneratedSnippet(buildEmbedSnippet(store.id, store.name, html.trim()));
+    setCopied(false);
   }
 
-  async function handleGenerate() {
-    if (!selectedStoreId) return;
-    setGenerating(true);
-    setError(null);
-    try {
-      const token = await db.embedTokens.create(selectedStoreId, newLabel || 'Default Form');
-      setTokens(prev => [token as EmbedToken, ...prev]);
-      setNewLabel('');
-      setPreviewToken(token as EmbedToken);
-    } catch (err: any) {
-      setError('Failed to generate token. ' + (err?.message || ''));
-    } finally {
-      setGenerating(false);
-    }
+  function handleCopy() {
+    navigator.clipboard.writeText(generatedSnippet);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   }
 
-  async function handleRevoke(token: EmbedToken) {
-    try {
-      await db.embedTokens.revoke(token.id);
-      setTokens(prev => prev.map(t => t.id === token.id ? { ...t, active: false } : t));
-      if (previewToken?.id === token.id) setPreviewToken(null);
-    } catch (err: any) {
-      setError('Failed to revoke token.');
-    }
-  }
-
-  async function handleDelete(token: EmbedToken) {
-    if (!confirm(`Delete embed token "${token.label}"? This will permanently break any forms using it.`)) return;
-    try {
-      await db.embedTokens.delete(token.id);
-      setTokens(prev => prev.filter(t => t.id !== token.id));
-      if (previewToken?.id === token.id) setPreviewToken(null);
-    } catch (err: any) {
-      setError('Failed to delete token.');
-    }
-  }
-
-  function embedCode(token: string) {
-    return `<script src="${API_BASE}/embed/widget.js?token=${token}"></script>`;
-  }
-
-  function copyEmbed(token: EmbedToken) {
-    navigator.clipboard.writeText(embedCode(token.token));
-    setCopiedId(token.id);
-    setTimeout(() => setCopiedId(null), 2500);
+  function handleReset() {
+    setHtml(DEFAULT_HTML);
+    setGeneratedSnippet('');
   }
 
   const selectedStore = stores.find(s => s.id === selectedStoreId);
 
   return (
     <div className="space-y-8">
+
       {/* Store selector */}
       <div>
-        <Label>Select Store to Generate Embed For</Label>
+        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Store</label>
         <select
           value={selectedStoreId}
           onChange={e => setSelectedStoreId(e.target.value)}
@@ -108,164 +148,93 @@ const EmbedCodeGenerator: React.FC<EmbedCodeGeneratorProps> = ({ stores }) => {
         </select>
       </div>
 
-      {/* Generate new token */}
-      <div className="p-6 bg-blue-50/60 border border-blue-100 rounded-3xl space-y-4">
-        <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-700">Generate New Embed Code</h4>
-        <div className="flex gap-3">
-          <input
-            type="text"
-            placeholder={`Label (e.g. "Homepage Form")`}
-            value={newLabel}
-            onChange={e => setNewLabel(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleGenerate()}
-            className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 placeholder:text-slate-300"
-          />
-          <button
-            onClick={handleGenerate}
-            disabled={generating || !selectedStoreId}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-700 disabled:opacity-60 transition-all"
-          >
-            {generating ? <RefreshCw size={14} className="animate-spin" /> : <Plus size={14} />}
-            Generate
-          </button>
-        </div>
-        <p className="text-[10px] text-blue-600 font-bold">
-          Each code is unique to <strong>{selectedStore?.name || 'this store'}</strong>. Leads submitted go directly to their CRM — no third-party tools needed.
-        </p>
-      </div>
-
-      {error && (
-        <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-700 text-sm font-bold">
-          <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
-          {error}
-        </div>
-      )}
-
-      {/* Preview embed code */}
-      {previewToken && (
-        <div className="p-6 bg-slate-900 rounded-3xl space-y-4 animate-in fade-in duration-300">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-2">
-              <CheckCircle size={14} /> New embed code ready — "{previewToken.label}"
-            </span>
-            <button onClick={() => setPreviewToken(null)} className="text-slate-500 hover:text-white text-xs">✕ Dismiss</button>
-          </div>
-          <div className="bg-slate-800 rounded-2xl p-4 font-mono text-xs text-blue-300 break-all">
-            {embedCode(previewToken.token)}
-          </div>
-          <div className="flex gap-3">
+      {/* HTML editor */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400">
+            Form HTML for <span className="text-slate-700">{selectedStore?.name}</span>
+          </label>
+          <div className="flex gap-2">
             <button
-              onClick={() => copyEmbed(previewToken)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all"
+              onClick={() => setShowPreview(p => !p)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 rounded-lg hover:bg-slate-200 transition-all"
             >
-              {copiedId === previewToken.id ? <CheckCircle size={14} /> : <Copy size={14} />}
-              {copiedId === previewToken.id ? 'Copied!' : 'Copy Code'}
+              {showPreview ? <EyeOff size={12} /> : <Eye size={12} />}
+              {showPreview ? 'Edit' : 'Preview'}
             </button>
-            <p className="text-[10px] text-slate-400 font-bold self-center">Paste this anywhere on the website — inside a page, post, or popup.</p>
+            <button
+              onClick={handleReset}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 rounded-lg hover:bg-slate-200 transition-all"
+            >
+              <RefreshCw size={12} /> Reset Default
+            </button>
+          </div>
+        </div>
+
+        {showPreview ? (
+          <div className="border border-slate-200 rounded-2xl p-6 bg-slate-50 min-h-[300px]">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Live Preview (approximate — final render depends on host page)</p>
+            <div dangerouslySetInnerHTML={{ __html: html }} />
+          </div>
+        ) : (
+          <textarea
+            value={html}
+            onChange={e => setHtml(e.target.value)}
+            spellCheck={false}
+            rows={18}
+            className="w-full px-4 py-4 bg-slate-900 text-blue-300 font-mono text-xs rounded-2xl border border-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/20 resize-y leading-relaxed"
+          />
+        )}
+
+        <p className="text-[10px] text-slate-400 font-bold">
+          Use <code className="bg-slate-100 px-1 rounded text-slate-700">name="firstName"</code>, <code className="bg-slate-100 px-1 rounded text-slate-700">name="lastName"</code>, <code className="bg-slate-100 px-1 rounded text-slate-700">name="email"</code>, <code className="bg-slate-100 px-1 rounded text-slate-700">name="phone"</code>, <code className="bg-slate-100 px-1 rounded text-slate-700">name="message"</code> on your inputs. Must include a <code className="bg-slate-100 px-1 rounded text-slate-700">&lt;form&gt;</code> element.
+        </p>
+      </div>
+
+      {/* Generate button */}
+      <button
+        onClick={handleGenerate}
+        disabled={!html.trim() || !selectedStoreId}
+        className="flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-700 disabled:opacity-60 transition-all"
+      >
+        <Code size={16} /> Generate Embed Code
+      </button>
+
+      {/* Generated snippet */}
+      {generatedSnippet && (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 flex items-center gap-2">
+              <CheckCircle size={14} /> Embed code ready for {selectedStore?.name}
+            </span>
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-all"
+            >
+              {copied ? <CheckCircle size={14} className="text-emerald-400" /> : <Copy size={14} />}
+              {copied ? 'Copied!' : 'Copy Code'}
+            </button>
+          </div>
+
+          <div className="bg-slate-900 rounded-2xl p-5 border border-slate-700 overflow-x-auto">
+            <pre className="font-mono text-[11px] text-blue-300 whitespace-pre-wrap break-all leading-relaxed">
+              {generatedSnippet}
+            </pre>
+          </div>
+
+          <div className="p-5 bg-blue-50/60 border border-blue-100 rounded-2xl space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-blue-700">How to use</p>
+            <ol className="text-xs text-slate-600 font-bold space-y-1.5 list-decimal list-inside">
+              <li>Copy the code above</li>
+              <li>Paste it anywhere on the website — a page, popup, sidebar, contact section</li>
+              <li>That's it. Leads go directly into <strong>{selectedStore?.name}</strong>'s CRM</li>
+            </ol>
+            <p className="text-[10px] text-slate-400 font-bold italic pt-1">
+              To update the form design, edit the HTML here and generate a new code — then replace the old snippet on the website.
+            </p>
           </div>
         </div>
       )}
-
-      {/* Token list */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <Label>Existing Embed Codes for {selectedStore?.name}</Label>
-          {loading && <RefreshCw size={14} className="text-slate-400 animate-spin" />}
-        </div>
-
-        {!loading && tokens.length === 0 && (
-          <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-3xl">
-            <Code size={32} className="text-slate-300 mx-auto mb-3" />
-            <p className="text-sm text-slate-400 font-bold">No embed codes yet. Generate one above.</p>
-          </div>
-        )}
-
-        {tokens.length > 0 && (
-          <div className="border border-slate-100 rounded-[24px] overflow-hidden">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50 border-b border-slate-100">
-                <tr>
-                  <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Label</th>
-                  <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Token</th>
-                  <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
-                  <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Created</th>
-                  <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {tokens.map(t => (
-                  <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-bold text-slate-900">{t.label || '—'}</td>
-                    <td className="px-6 py-4">
-                      <span className="font-mono text-[11px] text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
-                        {t.token.slice(0, 12)}…
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`flex items-center gap-1.5 text-[10px] font-black uppercase ${t.active ? 'text-emerald-600' : 'text-slate-400'}`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${t.active ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                        {t.active ? 'Active' : 'Revoked'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-400 font-medium">
-                      {new Date(t.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        {t.active && (
-                          <button
-                            onClick={() => copyEmbed(t)}
-                            title="Copy embed code"
-                            className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
-                          >
-                            {copiedId === t.id ? <CheckCircle size={15} className="text-emerald-500" /> : <Copy size={15} />}
-                          </button>
-                        )}
-                        {t.active && (
-                          <button
-                            onClick={() => handleRevoke(t)}
-                            title="Revoke (disable without deleting)"
-                            className="p-2 text-slate-400 hover:text-amber-600 transition-colors"
-                          >
-                            <ToggleRight size={15} />
-                          </button>
-                        )}
-                        {!t.active && (
-                          <span className="p-2 text-slate-200">
-                            <ToggleLeft size={15} />
-                          </span>
-                        )}
-                        <button
-                          onClick={() => handleDelete(t)}
-                          title="Delete permanently"
-                          className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* How it works */}
-      <div className="p-6 bg-slate-50 border border-slate-100 rounded-3xl space-y-3">
-        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">How It Works</h4>
-        <ol className="text-xs text-slate-600 font-bold space-y-2 list-decimal list-inside">
-          <li>Generate an embed code for a store above</li>
-          <li>Paste the <code className="bg-slate-200 px-1 rounded text-slate-800">&lt;script&gt;</code> tag anywhere on the store owner's website</li>
-          <li>A branded contact form appears automatically — no plugins required</li>
-          <li>Every submission goes directly into that store's CRM as a new lead</li>
-          <li>Revoke a code anytime to disable the form without deleting its history</li>
-        </ol>
-        <p className="text-[10px] text-slate-400 font-bold italic">
-          Each token is tied to a specific store. The token is public but harmless — it can only create leads, nothing else.
-        </p>
-      </div>
     </div>
   );
 };
