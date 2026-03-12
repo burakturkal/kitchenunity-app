@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Code, Copy, CheckCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { CabinetStore } from '../types';
 
-const API_BASE = 'https://api.cabopspro.com';
+// Supabase connection — anon key is intentionally public (read: Supabase docs)
+const SUPABASE_URL = 'https://ffhdrhvstaonvcludbgn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_in95qOxRG0FXiOVUHrGF_g_LL7uwRYi';
 
 const DEFAULT_HTML = `<form style="display:flex;flex-direction:column;gap:12px;max-width:480px;padding:28px 32px;background:#fff;border-radius:14px;border:1.5px solid #e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.07);">
   <h3 style="margin:0 0 4px;font-size:18px;font-weight:800;color:#0f172a;letter-spacing:-.4px;">Get in Touch</h3>
@@ -21,7 +23,6 @@ const DEFAULT_HTML = `<form style="display:flex;flex-direction:column;gap:12px;m
 </form>`;
 
 function buildEmbedSnippet(storeId: string, storeName: string, html: string): string {
-  // Unique container ID per generation so multiple forms can coexist on one page
   const uid = `ku-${storeId.slice(0, 8)}-${Date.now().toString(36)}`;
 
   return `<!-- KitchenUnity Lead Form | ${storeName} -->
@@ -30,58 +31,86 @@ function buildEmbedSnippet(storeId: string, storeName: string, html: string): st
 (function(){
   var ROOT=document.getElementById('${uid}');
   var STORE_ID='${storeId}';
-  var API='${API_BASE}/api/embed/submit';
+  var SB_URL='${SUPABASE_URL}';
+  var SB_KEY='${SUPABASE_ANON_KEY}';
   var form=ROOT.querySelector('form');
-  if(!form){console.error('[KU Embed] No <form> element found in embed block.');return;}
+  if(!form){console.error('[KU Embed] No <form> found in embed block.');return;}
 
-  /* Honeypot — hidden from humans, filled by bots */
+  /* Honeypot — hidden from humans, bots fill it automatically */
   var hp=document.createElement('input');
   hp.type='text';hp.name='_hp';hp.tabIndex=-1;hp.autocomplete='off';
   hp.style.cssText='position:absolute;left:-9999px;height:0;opacity:0;';
   form.appendChild(hp);
 
-  /* Success / error message element — use existing #ku-msg if present */
+  /* Message element — use #ku-msg if in template, otherwise create one */
   var msg=ROOT.querySelector('#ku-msg')||ROOT.querySelector('.ku-msg');
-  if(!msg){msg=document.createElement('div');msg.style.cssText='margin-top:10px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:700;display:none;font-family:inherit;';form.appendChild(msg);}
-
+  if(!msg){
+    msg=document.createElement('div');
+    msg.style.cssText='margin-top:10px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:700;display:none;font-family:inherit;';
+    form.appendChild(msg);
+  }
   function showMsg(text,ok){
-    msg.textContent=text;
-    msg.style.display='block';
+    msg.textContent=text;msg.style.display='block';
     msg.style.background=ok?'#f0fdf4':'#fef2f2';
     msg.style.color=ok?'#16a34a':'#dc2626';
-    msg.style.border=ok?'1px solid #bbf7d0':'1px solid #fecaca';
+    msg.style.border='1px solid '+(ok?'#bbf7d0':'#fecaca');
   }
 
   var btn=form.querySelector('button[type=submit]');
 
   form.addEventListener('submit',function(e){
     e.preventDefault();
+    if(hp.value)return; /* bot detected — silent drop */
+
     /* Collect all named inputs */
-    var data={storeId:STORE_ID,_hp:hp.value,source:'Embedded Form'};
+    var f={};
     form.querySelectorAll('input,textarea,select').forEach(function(el){
-      if(el.name&&el.name!=='_hp')data[el.name]=el.value.trim();
+      if(el.name&&el.name!=='_hp')f[el.name]=el.value.trim();
     });
-    /* Client-side guard */
-    var hasName=data.firstName||data.lastName||data.name;
-    if(!hasName&&!data.email&&!data.phone){
+
+    var firstName=f.firstName||f.first_name||'';
+    var lastName=f.lastName||f.last_name||'';
+    var name=f.name||(firstName+' '+lastName).trim();
+    var email=(f.email||'').toLowerCase();
+    var phone=f.phone||'';
+    var message=f.message||f.textarea||f.notes||'';
+
+    if(!name&&!email&&!phone){
       showMsg('Please fill in at least your name and email.',false);return;
     }
     if(btn){btn.disabled=true;btn.textContent='Sending...';}
     msg.style.display='none';
-    fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
-    .then(function(r){return r.json();})
-    .then(function(d){
-      if(d.ok){
+
+    /* Write directly to Supabase — no server needed */
+    fetch(SB_URL+'/rest/v1/leads',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'apikey':SB_KEY,
+        'Authorization':'Bearer '+SB_KEY,
+        'Prefer':'return=minimal'
+      },
+      body:JSON.stringify({
+        store_id:STORE_ID,
+        name:name||null,
+        email:email||null,
+        phone:phone||null,
+        message:message||null,
+        source:'Embedded Form',
+        status:'New'
+      })
+    })
+    .then(function(r){
+      if(r.ok||r.status===201){
         form.reset();
         showMsg('Message received! We will be in touch soon.',true);
         if(btn){btn.textContent='Sent!';setTimeout(function(){btn.disabled=false;btn.textContent='Send Message';},6000);}
       }else{
-        showMsg(d.error||'Something went wrong. Please try again.',false);
-        if(btn){btn.disabled=false;btn.textContent='Send Message';}
+        return r.json().then(function(d){throw new Error(d.message||'Error '+r.status);});
       }
     })
-    .catch(function(){
-      showMsg('Network error. Please check your connection.',false);
+    .catch(function(err){
+      showMsg(err.message||'Something went wrong. Please try again.',false);
       if(btn){btn.disabled=false;btn.textContent='Send Message';}
     });
   });
