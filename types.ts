@@ -166,3 +166,12 @@ export interface InventoryItem {
   description: string;
   createdAt: string;
 }
+
+export interface EmbedToken {
+  id: string;
+  storeId: string;
+  token: string;
+  label: string;
+  active: boolean;
+  createdAt: string;
+}

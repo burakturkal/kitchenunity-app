@@ -410,5 +410,50 @@ export const db = {
       const { error } = await supabase.from('inventory').delete().eq('id', id);
       if (error) throw error;
     }
+  },
+  embedTokens: {
+    async listByStore(storeId: string) {
+      const { data, error } = await supabase
+        .from('embed_tokens')
+        .select('*')
+        .eq('store_id', storeId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        storeId: row.store_id,
+        token: row.token,
+        label: row.label || '',
+        active: row.active,
+        createdAt: row.created_at,
+      }));
+    },
+    async create(storeId: string, label: string) {
+      const bytes = new Uint8Array(24);
+      crypto.getRandomValues(bytes);
+      const token = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      const { data, error } = await supabase
+        .from('embed_tokens')
+        .insert({ store_id: storeId, token, label: label.trim(), active: true })
+        .select()
+        .single();
+      if (error) throw error;
+      return {
+        id: data.id,
+        storeId: data.store_id,
+        token: data.token,
+        label: data.label,
+        active: data.active,
+        createdAt: data.created_at,
+      };
+    },
+    async revoke(id: string) {
+      const { error } = await supabase.from('embed_tokens').update({ active: false }).eq('id', id);
+      if (error) throw error;
+    },
+    async delete(id: string) {
+      const { error } = await supabase.from('embed_tokens').delete().eq('id', id);
+      if (error) throw error;
+    },
   }
 };
