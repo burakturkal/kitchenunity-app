@@ -1450,35 +1450,6 @@ const App: React.FC = () => {
                         )}
                         <td className="px-8 py-4 flex gap-2 justify-end">
                           {renderTableActions(['view', 'edit', 'delete'], 'Customer', c)}
-                          <button
-                            className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-green-700 transition-all"
-                            title="Connect QuickBooks"
-                            onClick={async () => {
-                              // Get OAuth URL from Worker which has access to Cloudflare secrets
-                              try {
-                                const res = await fetch('https://kitchenunity-app.kitchenunityservices.workers.dev/connect');
-                                if (!res.ok) {
-                                  const text = await res.text();
-                                  console.error('OAuth endpoint error:', res.status, text);
-                                  alert(`OAuth endpoint error: ${res.status}. Check console for details.`);
-                                  return;
-                                }
-                                const data = await res.json();
-                                const { authUrl } = data;
-                                if (!authUrl) {
-                                  console.error('No authUrl in response:', data);
-                                  alert('Failed to get OAuth URL from QuickBooks.');
-                                  return;
-                                }
-                                window.location.href = authUrl;
-                              } catch (error) {
-                                console.error('Error getting OAuth URL:', error instanceof Error ? error.message : error);
-                                alert(`Failed to connect to QuickBooks: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                              }
-                            }}
-                          >
-                            QuickBooks OAuth
-                          </button>
                         </td>
                       </tr>
                     );

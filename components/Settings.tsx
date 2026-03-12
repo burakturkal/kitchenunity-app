@@ -78,29 +78,6 @@ const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInputEleme
 
 const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, activeStore, stores = [], currentUserRole }) => {
   const [users, setUsers] = useState<UserRow[]>([]);
-  // QuickBooks developer API settings state
-  const [qbClientId, setQbClientId] = useState('');
-  const [qbClientSecret, setQbClientSecret] = useState('');
-  const [qbRedirectUri, setQbRedirectUri] = useState('');
-  const [isQbSaving, setIsQbSaving] = useState(false);
-  const [isQbConnected, setIsQbConnected] = useState(false);
-
-  const handleQbSave = async () => {
-    setIsQbSaving(true);
-    try {
-      // Save credentials to backend (replace with real API call)
-      await fetch('/api/save-qb-credentials', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: qbClientId, clientSecret: qbClientSecret, redirectUri: qbRedirectUri })
-      });
-      alert('QuickBooks API credentials saved!');
-    } catch (err) {
-      alert('Failed to save QuickBooks credentials.');
-    } finally {
-      setIsQbSaving(false);
-    }
-  };
   // --- Accounting State ---
   const [accountingTab, setAccountingTab] = useState<'general' | 'accounting'>('general');
   const [salesTax, setSalesTax] = useState<number>(MOCK_SALES_TAX);
@@ -290,69 +267,6 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
 
   return (
       <div className="space-y-12 pb-24">
-        {/* QuickBooks Developer API Settings (Admin Only) */}
-        {currentUserRole === UserRole.ADMIN && (
-          <div className="bg-white rounded-[40px] border border-slate-200 p-10 shadow-sm mb-12">
-            <SectionHeader title="QuickBooks Integration Settings" icon={Database} />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div className="space-y-6">
-                {/* QuickBooks Connect Button for Store */}
-                <div>
-                  <Label>QuickBooks Integration</Label>
-                  <button
-                    className="px-6 py-3 bg-green-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-green-700 transition-all"
-                    onClick={async () => {
-                      // Get OAuth URL from Worker which has access to Cloudflare secrets
-                      try {
-                        const res = await fetch('https://kitchenunity-app.kitchenunityservices.workers.dev/connect');
-                        if (!res.ok) {
-                          const text = await res.text();
-                          console.error('OAuth endpoint error:', res.status, text);
-                          alert(`OAuth endpoint error: ${res.status}. Check console for details.`);
-                          return;
-                        }
-                        const data = await res.json();
-                        const { authUrl } = data;
-                        if (!authUrl) {
-                          console.error('No authUrl in response:', data);
-                          alert('Failed to get OAuth URL from QuickBooks.');
-                          return;
-                        }
-                        window.location.href = authUrl;
-                      } catch (error) {
-                        console.error('Error getting OAuth URL:', error instanceof Error ? error.message : error);
-                        alert(`Failed to connect to QuickBooks: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                      }
-                    }}
-                  >
-                    {isQbConnected ? 'Connected to QuickBooks' : 'Connect to QuickBooks'}
-                  </button>
-                </div>
-                <div>
-                  <Label>Client ID</Label>
-                  <Input value={qbClientId} onChange={e => setQbClientId(e.target.value)} placeholder="Enter QuickBooks Client ID" />
-                </div>
-                <div>
-                  <Label>Client Secret</Label>
-                  <Input value={qbClientSecret} onChange={e => setQbClientSecret(e.target.value)} placeholder="Enter QuickBooks Client Secret" type="password" />
-                </div>
-                <div>
-                  <Label>Redirect URI</Label>
-                  <Input value={qbRedirectUri} onChange={e => setQbRedirectUri(e.target.value)} placeholder="Enter Redirect URI" />
-                </div>
-              </div>
-            </div>
-            <div className="mt-10 pt-10 border-t border-slate-100 flex justify-end">
-              <button
-                onClick={handleQbSave}
-                disabled={isQbSaving}
-                className="flex items-center gap-2 px-10 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:-translate-y-1 transition-all shadow-xl shadow-blue-500/20 disabled:opacity-60"
-              >
-                {isQbSaving ? 'Saving...' : 'Save QuickBooks Credentials'}
-              </button>
-            </div>
-          </div>
-        )}
       {/* ACCOUNTING TAB SWITCHER */}
       <div className="flex gap-4 mb-8">
         <button
@@ -367,62 +281,6 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
 
       {accountingTab === 'accounting' && (
         <div className="bg-white rounded-[40px] border-2 border-blue-500/20 p-10 shadow-xl shadow-blue-500/5 relative overflow-hidden space-y-12">
-          <SectionHeader title="QuickBooks Integration" icon={Database} />
-          <div className="mb-8">
-            <Label>Connect your store to QuickBooks</Label>
-            <button
-              className="px-6 py-3 bg-green-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-green-500 transition-colors"
-              onClick={async () => {
-                // Get OAuth URL from Worker which has access to Cloudflare secrets
-                try {
-                  const res = await fetch('https://kitchenunity-app.kitchenunityservices.workers.dev/connect');
-                  if (!res.ok) {
-                    const text = await res.text();
-                    console.error('OAuth endpoint error:', res.status, text);
-                    alert(`OAuth endpoint error: ${res.status}. Check console for details.`);
-                    return;
-                  }
-                  const data = await res.json();
-                  const { authUrl } = data;
-                  if (!authUrl) {
-                    console.error('No authUrl in response:', data);
-                    alert('Failed to get OAuth URL from QuickBooks.');
-                    return;
-                  }
-                  window.location.href = authUrl;
-                } catch (error) {
-                  console.error('Error getting OAuth URL:', error instanceof Error ? error.message : error);
-                  alert(`Failed to connect to QuickBooks: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                }
-              }}
-            >
-              {isQbConnected ? 'Connected to QuickBooks' : 'Connect to QuickBooks'}
-            </button>
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <Label>Client ID</Label>
-                <Input value={qbClientId} onChange={e => setQbClientId(e.target.value)} placeholder="Enter QuickBooks Client ID" />
-              </div>
-              <div>
-                <Label>Client Secret</Label>
-                <Input value={qbClientSecret} onChange={e => setQbClientSecret(e.target.value)} placeholder="Enter QuickBooks Client Secret" type="password" />
-              </div>
-              <div>
-                <Label>Redirect URI</Label>
-                <Input value={qbRedirectUri} onChange={e => setQbRedirectUri(e.target.value)} placeholder="Enter Redirect URI" />
-              </div>
-            </div>
-            <div className="mt-10 pt-10 border-t border-slate-100 flex justify-end">
-              <button
-                onClick={handleQbSave}
-                disabled={isQbSaving}
-                className="flex items-center gap-2 px-10 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:-translate-y-1 transition-all shadow-xl shadow-blue-500/20 disabled:opacity-60"
-              >
-                {isQbSaving ? 'Saving...' : 'Save QuickBooks Credentials'}
-              </button>
-            </div>
-          </div>
-          {/* ...existing accounting tab content (sales tax, expense types, etc.) ... */}
           <SectionHeader title="Sales Tax" icon={Database} />
           <div className="mb-8">
             <Label>Global Sales Tax (%)</Label>
