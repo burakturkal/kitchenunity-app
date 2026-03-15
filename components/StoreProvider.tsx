@@ -130,12 +130,28 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setIsAuthLoading(false);
         return;
       }
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
+      const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      // Successful login will redirect or update session automatically
+
+      // Fetch profile to determine role and store
+      const userId = authData.user?.id;
+      if (userId) {
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+        const mappedProfile = mapToCamel(profile);
+        const profileStoreId = mappedProfile?.storeId || null;
+        const profileRole = mappedProfile?.role;
+
+        if (profileRole === 'super_admin') {
+          setCurrentUser({ id: userId, name: email, role: UserRole.ADMIN, storeId: profileStoreId || undefined });
+          setSelectedAdminStoreId('all');
+        } else {
+          setCurrentUser({ id: userId, name: email, role: UserRole.CUSTOMER, storeId: profileStoreId || undefined });
+          if (profileStoreId) {
+            setSelectedAdminStoreId(profileStoreId);
+            setHostStoreId(profileStoreId);
+          }
+        }
+      }
     } catch (err: any) {
       alert(err.message || "Authentication attempt failed.");
     } finally {

@@ -1,20 +1,23 @@
 
-import React, { useState, useMemo } from 'react';
-import { 
-  UserCircle, 
-  Menu, 
-  X, 
-  Building2, 
-  ChevronRight, 
-  ChevronDown, 
-  LogOut, 
-  ShieldCheck, 
-  Globe, 
-  ChevronLeft 
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import {
+  UserCircle,
+  Menu,
+  X,
+  Building2,
+  ChevronRight,
+  ChevronDown,
+  LogOut,
+  ShieldCheck,
+  Globe,
+  ChevronLeft,
+  Sparkles,
+  Bell
 } from 'lucide-react';
-import { UserRole, CabinetStore } from '../types';
+import { UserRole, CabinetStore, Lead } from '../types';
 import { NAV_ITEMS } from '../constants';
 import { supabase } from '../services/supabase';
+import RequestDesignModal from './RequestDesignModal';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -25,20 +28,59 @@ interface LayoutProps {
   selectedAdminStoreId?: string;
   setSelectedAdminStoreId?: (id: string) => void;
   stores?: CabinetStore[];
+  leads?: Lead[];
 }
 
-const Layout: React.FC<LayoutProps> = ({ 
-  children, 
-  activeTab, 
-  setActiveTab, 
-  currentUser, 
+const Layout: React.FC<LayoutProps> = ({
+  children,
+  activeTab,
+  setActiveTab,
+  currentUser,
   onRoleSwitch,
   selectedAdminStoreId,
   setSelectedAdminStoreId,
-  stores = []
+  stores = [],
+  leads = []
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({ sales: false });
+  const [designModalOpen, setDesignModalOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  // Track new leads since last visit using localStorage
+  const LAST_SEEN_KEY = 'ku_last_seen_leads';
+  const lastSeen = useMemo(() => {
+    const ts = localStorage.getItem(LAST_SEEN_KEY);
+    return ts ? new Date(ts) : new Date(0);
+  }, []);
+
+  const newLeads = useMemo(() => {
+    return leads
+      .filter(l => new Date(l.createdAt) > lastSeen)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10);
+  }, [leads, lastSeen]);
+
+  const markSeen = () => {
+    localStorage.setItem(LAST_SEEN_KEY, new Date().toISOString());
+    setNotifOpen(false);
+  };
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const activeStoreName = useMemo(() => {
+    if (selectedAdminStoreId === 'all') return 'KitchenUnity';
+    return stores.find(s => s.id === selectedAdminStoreId)?.name || 'KitchenUnity';
+  }, [selectedAdminStoreId, stores]);
 
   const toggleSubMenu = (id: string) => {
     setExpandedMenus(prev => ({ ...prev, [id]: !prev[id] }));
@@ -60,20 +102,17 @@ const Layout: React.FC<LayoutProps> = ({
     // Admin in "Global View" sees restricted items
     if (currentUser.role === UserRole.ADMIN) {
       if (selectedAdminStoreId === 'all') {
-        return NAV_ITEMS.filter(item => ['dashboard', 'reports', 'settings'].includes(item.id));
+        return NAV_ITEMS.filter(item => ['dashboard', 'reports', 'settings', 'notes'].includes(item.id));
       }
       return NAV_ITEMS;
     }
-    
+
     // REQUIREMENT: Staff (EMPLOYEE) must see exactly what the Shop (CUSTOMER) sees.
     // By returning all NAV_ITEMS here, both roles get access to Leads, Orders, Inventory, etc.
-    return NAV_ITEMS;
+    // Hide adminOnly items from non-admins.
+    return NAV_ITEMS.filter(item => !item.adminOnly);
   }, [currentUser.role, selectedAdminStoreId]);
 
-  const activeStoreName = useMemo(() => {
-    if (selectedAdminStoreId === 'all') return 'Global Platform Ledger';
-    return stores.find(s => s.id === selectedAdminStoreId)?.name || 'Store Operations';
-  }, [selectedAdminStoreId, stores]);
 
   return (
     <div className="flex h-screen bg-white overflow-hidden font-sans">
@@ -208,7 +247,66 @@ const Layout: React.FC<LayoutProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setDesignModalOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-rose-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-rose-500/30 hover:bg-rose-600 hover:-translate-y-0.5 transition-all"
+            >
+              <Sparkles size={14} />
+              Request a Design
+            </button>
+
+            {/* Notification Bell */}
+            <div className="relative" ref={notifRef}>
+              <button
+                onClick={() => setNotifOpen(v => !v)}
+                className="relative w-10 h-10 flex items-center justify-center bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:border-blue-500 hover:text-blue-600 transition-all"
+              >
+                <Bell size={18} />
+                {newLeads.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[8px] font-black rounded-full flex items-center justify-center">
+                    {newLeads.length > 9 ? '9+' : newLeads.length}
+                  </span>
+                )}
+              </button>
+
+              {notifOpen && (
+                <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">
+                      New Leads {newLeads.length > 0 && <span className="text-rose-500">({newLeads.length})</span>}
+                    </p>
+                    {newLeads.length > 0 && (
+                      <button onClick={markSeen} className="text-[9px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-700">
+                        Mark all seen
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-72 overflow-y-auto">
+                    {newLeads.length > 0 ? newLeads.map(lead => (
+                      <div
+                        key={lead.id}
+                        onClick={() => { setActiveTab('leads'); markSeen(); }}
+                        className="px-5 py-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-50 last:border-0"
+                      >
+                        <p className="text-xs font-black text-slate-900">{lead.firstName} {lead.lastName}</p>
+                        <div className="flex items-center justify-between mt-0.5">
+                          <p className="text-[10px] text-slate-400 font-bold">Via {lead.source || 'Direct'}</p>
+                          <p className="text-[9px] text-slate-400 font-bold">
+                            {new Date(lead.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          </p>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="px-5 py-8 text-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        All caught up
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="hidden sm:flex flex-col items-end">
               <span className="text-sm font-black text-slate-900 tracking-tight">{currentUser.name}</span>
               <span className="text-[10px] text-blue-600 font-black uppercase tracking-widest">Access: {currentUser.role}</span>
@@ -240,6 +338,13 @@ const Layout: React.FC<LayoutProps> = ({
           </div>
         </main>
       </div>
+
+      {designModalOpen && (
+        <RequestDesignModal
+          storeName={activeStoreName}
+          onClose={() => setDesignModalOpen(false)}
+        />
+      )}
     </div>
   );
 };

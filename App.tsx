@@ -8,7 +8,11 @@ import Planner from './components/Planner';
 import Settings from './components/Settings';
 import Reports from './components/Reports';
 import Accounting from './components/Accounting';
+import Help from './components/Help';
+import Notes from './components/Notes';
 import StoreManager from './components/StoreManager';
+import CustomerProfile from './components/CustomerProfile';
+import OrderKanban from './components/OrderKanban';
 import { useTenant } from './components/StoreProvider';
 import { 
   Lead, 
@@ -53,7 +57,11 @@ import {
   Activity,
   Globe,
   Store,
-  Mail
+  Mail,
+  Upload,
+  AlertTriangle,
+  CheckCircle2,
+  Info
 } from 'lucide-react';
 
 // --- Shared Internal Components ---
@@ -306,6 +314,60 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Detect abandoned Stripe checkout (Stripe cancel button OR browser back button)
+  useEffect(() => {
+    const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://ffhdrhvstaonvcludbgn.supabase.co';
+    const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_in95qOxRG0FXiOVUHrGF_g_LL7uwRYi';
+
+    const fireCancelEmail = () => {
+      const raw = sessionStorage.getItem('designCancelData');
+      sessionStorage.removeItem('designCancelData');
+      sessionStorage.removeItem('designPending');
+      if (!raw) return;
+      try {
+        const payload = JSON.parse(raw);
+        fetch(`${SUPABASE_URL}/functions/v1/send-design-cancelled`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+          body: JSON.stringify(payload),
+        }).catch(err => console.error('Failed to send cancelled notification:', err));
+      } catch { /* ignore parse errors */ }
+    };
+
+    const params = new URLSearchParams(window.location.search);
+    console.log('[Design] useEffect ran. URL:', window.location.search, '| designPending:', sessionStorage.getItem('designPending'), '| cancelData:', sessionStorage.getItem('designCancelData'));
+
+    if (params.get('design_success') === '1') {
+      // Payment completed — just clean up
+      sessionStorage.removeItem('designCancelData');
+      sessionStorage.removeItem('designPending');
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
+
+    if (params.get('design_cancelled') === '1') {
+      // Stripe's cancel button was clicked
+      window.history.replaceState({}, '', window.location.pathname);
+      fireCancelEmail();
+      return;
+    }
+
+    // Browser back button (non-bfcache): page remounted without URL params
+    if (sessionStorage.getItem('designPending') === '1') {
+      fireCancelEmail();
+    }
+
+    // Browser back button (bfcache): page restored from cache, useEffect won't re-run
+    const handlePageShow = (e: PageTransitionEvent) => {
+      console.log('[Design] pageshow fired. persisted:', e.persisted, '| designPending:', sessionStorage.getItem('designPending'));
+      if (e.persisted && sessionStorage.getItem('designPending') === '1') {
+        fireCancelEmail();
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
+
   function getAllParams() {
     // Prefer search params if present, else parse hash
     let params = new URLSearchParams(window.location.search);
@@ -333,13 +395,22 @@ const App: React.FC = () => {
   } = useTenant();
 
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [storeSettingsTarget, setStoreSettingsTarget] = useState<CabinetStore | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [ordersKanbanView, setOrdersKanbanView] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<string>('');
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true); console.log('Effective Store ID:', effectiveStoreId); // Debugging: Log the effectiveStoreId
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  const [emailSending, setEmailSending] = useState(false);
   const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importStatus, setImportStatus] = useState<'idle' | 'parsing' | 'uploading' | 'done' | 'error'>('idle');
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
   const [quickCustomer, setQuickCustomer] = useState({ 
     firstName: '', 
     lastName: '', 
@@ -562,44 +633,74 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSendInvoiceEmail = useCallback(() => {
-    if (!selectedItem) {
+  const handleSendInvoiceEmail = useCallback(async (orderItem?: any, overrideType?: string) => {
+    const order = orderItem || selectedItem;
+    const type = overrideType || modalType.replace('View ', '').toLowerCase();
+
+    if (!order) {
       alert('No record selected.');
       return;
     }
 
-    const normalizedType = modalType.replace('View ', '').toLowerCase();
-    const supportsEmail = normalizedType.includes('order') || normalizedType.includes('invoice') || normalizedType.includes('customer');
+    const supportsEmail = type.includes('order') || type.includes('quote') || type.includes('invoice');
     if (!supportsEmail) {
-      alert('Emailing invoices is available from order, customer, or invoice records.');
+      alert('Emailing invoices is only available for order and quote records.');
       return;
     }
 
-    let recipientEmail = '';
-    let recipientName = '';
-
-    if (normalizedType.includes('customer')) {
-      recipientEmail = selectedItem.email || '';
-      recipientName = `${selectedItem.firstName || ''} ${selectedItem.lastName || ''}`.trim();
-    } else {
-      const customer = customers.find(c => c.id === selectedItem.customerId);
-      if (customer) {
-        recipientEmail = customer.email;
-        recipientName = `${customer.firstName} ${customer.lastName}`;
-      } else if (selectedItem.customerEmail) {
-        recipientEmail = selectedItem.customerEmail;
-        recipientName = selectedItem.customerName || 'Customer';
-      }
-    }
+    const customer = customers.find(c => c.id === order.customerId);
+    const recipientEmail = customer?.email || '';
+    const recipientName = customer ? `${customer.firstName} ${customer.lastName}` : '';
 
     if (!recipientEmail) {
       alert('No customer email on file for this record.');
       return;
     }
 
-    const nameSuffix = recipientName ? ` (${recipientName})` : '';
-    alert(`Invoice email dispatched to ${recipientEmail}${nameSuffix}.`);
-  }, [selectedItem, customers, modalType]);
+    const currentStore = stores.find(s => s.id === effectiveStoreId);
+    const replyTo = currentStore?.ownerEmail || '';
+    const storeName = currentStore?.name || 'KitchenUnity';
+
+    setEmailSending(true);
+    try {
+      const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
+      const supabaseKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-invoice`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          to: recipientEmail,
+          toName: recipientName,
+          replyTo,
+          storeName,
+          orderId: order.id,
+          orderStatus: order.status,
+          orderDate: order.createdAt,
+          lineItems: order.lineItems || [],
+          taxRate: order.taxRate || 0,
+          isNonTaxable: order.isNonTaxable || false,
+          amount: order.amount || 0,
+          notes: order.notes || '',
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err);
+      }
+
+      alert(`Invoice emailed to ${recipientName} (${recipientEmail}).`);
+    } catch (err) {
+      console.error('Email send failed:', err);
+      alert('Failed to send email. Please check your SMTP settings and try again.');
+    } finally {
+      setEmailSending(false);
+    }
+  }, [selectedItem, customers, modalType, stores, effectiveStoreId]);
 
   const handleSave = async () => {
     const displayType = modalType.replace('View ', '').toLowerCase();
@@ -749,6 +850,113 @@ const App: React.FC = () => {
     } catch (err) {
       console.error('Delete error:', err);
       alert('Delete failure.');
+    }
+  };
+
+  const handleImportLeads = async () => {
+    if (!importFile || !effectiveStoreId) return;
+    setImportStatus('parsing');
+    setImportResult(null);
+    try {
+      const text = await importFile.text();
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) throw new Error('CSV has no data rows.');
+
+      // Normalize header names
+      const rawHeaders = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim().toLowerCase().replace(/\s+/g, '_'));
+      const col = (names: string[]) => {
+        for (const n of names) { const i = rawHeaders.indexOf(n); if (i !== -1) return i; }
+        return -1;
+      };
+      const iFirst    = col(['first_name', 'firstname', 'first']);
+      const iLast     = col(['last_name', 'lastname', 'last']);
+      const iName     = col(['name', 'full_name']);
+      const iEmail    = col(['email', 'email_address']);
+      const iPhone    = col(['phone', 'phone_number', 'mobile']);
+      const iSource   = col(['source', 'lead_source', 'channel']);
+      const iStatus   = col(['status', 'lead_status']);
+      const iNotes    = col(['notes', 'message', 'description']);
+      const iDate     = col(['created_at', 'createdat', 'date', 'lead_date', 'submitted_at', 'submitted']);
+
+      const parseRow = (line: string) =>
+        line.split(',').map(v => v.replace(/^"|"$/g, '').trim());
+
+      const validStatuses = Object.values(LeadStatus) as string[];
+      const errors: string[] = [];
+      const toInsert: any[] = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const row = parseRow(lines[i]);
+        const email = iEmail !== -1 ? row[iEmail] : '';
+        const phone = iPhone !== -1 ? row[iPhone] : '';
+
+        // Derive first/last from split name if dedicated cols missing
+        let firstName = iFirst !== -1 ? row[iFirst] : '';
+        let lastName  = iLast  !== -1 ? row[iLast]  : '';
+        if (!firstName && !lastName && iName !== -1) {
+          const parts = (row[iName] || '').split(' ');
+          firstName = parts[0] || '';
+          lastName  = parts.slice(1).join(' ');
+        }
+
+        if (!firstName && !email && !phone) {
+          errors.push(`Row ${i + 1}: skipped — no name, email, or phone.`);
+          continue;
+        }
+
+        let status = iStatus !== -1 ? row[iStatus] : '';
+        if (!validStatuses.includes(status)) status = LeadStatus.NEW;
+
+        toInsert.push({
+          storeId: effectiveStoreId,
+          firstName: firstName || '',
+          lastName: lastName || '',
+          email: email || null,
+          phone: phone || null,
+          source: iSource !== -1 ? row[iSource] || 'Import' : 'Import',
+          status,
+          notes: iNotes !== -1 ? row[iNotes] || null : null,
+          createdAt: (() => {
+            if (iDate === -1 || !row[iDate]) return new Date().toISOString();
+            const raw = row[iDate].trim();
+            // Handle "MM/DD/YYYY H:MM AM" or "MM/DD/YYYY H:MMAM" (uppercase AM/PM required)
+            const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/);
+            if (m) {
+              let hours = parseInt(m[4], 10);
+              const minutes = parseInt(m[5], 10);
+              const meridiem = m[6];
+              if (meridiem === 'PM' && hours !== 12) hours += 12;
+              if (meridiem === 'AM' && hours === 12) hours = 0;
+              const d = new Date(parseInt(m[3]), parseInt(m[1]) - 1, parseInt(m[2]), hours, minutes);
+              return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+            }
+            const parsed = new Date(raw);
+            return isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+          })(),
+        });
+      }
+
+      if (toInsert.length === 0) throw new Error('No valid rows found to import.');
+
+      setImportStatus('uploading');
+      let imported = 0;
+      for (const lead of toInsert) {
+        try {
+          const saved = await db.leads.create(lead);
+          setLeads(prev => [saved as any, ...prev]);
+          imported++;
+        } catch {
+          errors.push(`Failed to save: ${lead.firstName} ${lead.lastName} (${lead.email || lead.phone})`);
+        }
+      }
+
+      setImportResult({ imported, skipped: toInsert.length - imported + (lines.length - 1 - toInsert.length), errors });
+      setImportStatus('done');
+      setImportFile(null);
+      if (importFileRef.current) importFileRef.current.value = '';
+    } catch (err: any) {
+      setImportResult({ imported: 0, skipped: 0, errors: [err.message || 'Unknown error'] });
+      setImportStatus('error');
     }
   };
 
@@ -1339,6 +1547,7 @@ const App: React.FC = () => {
     <div className="flex items-center gap-1 justify-end">
        {actions.includes('convert') && <button onClick={() => handleConvertQuote(item)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Confirm Order"><ArrowRightCircle size={18} /></button>}
        {actions.includes('view') && <button onClick={() => openModal(`View ${type}`, item)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="View"><Eye size={18} /></button>}
+       {actions.includes('email') && <button onClick={() => handleSendInvoiceEmail(item, type.toLowerCase())} disabled={emailSending} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition-colors disabled:opacity-50" title="Email Invoice"><Mail size={18} /></button>}
        {actions.includes('edit') && <button onClick={() => openModal(type, item)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors" title="Edit"><Edit2 size={18} /></button>}
        {actions.includes('delete') && currentUser.role === UserRole.ADMIN && <button onClick={() => handleDelete(type, item.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors" title="Delete"><Trash2 size={18} /></button>}
     </div>
@@ -1367,99 +1576,158 @@ const App: React.FC = () => {
     
     if (currentUser.role === UserRole.ADMIN && activeTab === 'dashboard') {
       return (
-        <div className="space-y-10">
-          <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-6">
+          <header className="flex items-center justify-between">
             <div>
-              <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase">Platform Control</h2>
-              <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mt-1">Multi-tenant management & global operations</p>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tighter uppercase">Platform Control</h2>
+              <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mt-0.5">Multi-tenant management & global operations</p>
             </div>
-            <div className="flex gap-4">
-               <div className="bg-emerald-50 border border-emerald-100 px-6 py-3 rounded-2xl flex items-center gap-3">
-                  <Activity size={18} className="text-emerald-500" />
+            <div className="flex gap-3">
+               <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-xl flex items-center gap-2">
+                  <Activity size={14} className="text-emerald-500" />
                   <div>
                     <p className="text-[9px] font-black uppercase text-emerald-600 tracking-widest">System Health</p>
-                    <p className="text-sm font-bold text-slate-900">100% Online</p>
+                    <p className="text-xs font-bold text-slate-900">100% Online</p>
                   </div>
                </div>
-               <div className="bg-blue-50 border border-blue-100 px-6 py-3 rounded-2xl flex itemscenter gap-3">
-                  <Globe size={18} className="text-blue-500" />
+               <div className="bg-blue-50 border border-blue-100 px-4 py-2 rounded-xl flex items-center gap-2">
+                  <Globe size={14} className="text-blue-500" />
                   <div>
-                                       <p className="text-[9px] font-black uppercase text-blue-600 tracking-widest">Active Regions</p>
-                    <p className="text-sm font-bold text-slate-900">4 Data Centers</p>
+                    <p className="text-[9px] font-black uppercase text-blue-600 tracking-widest">Active Regions</p>
+                    <p className="text-xs font-bold text-slate-900">4 Data Centers</p>
                   </div>
                </div>
             </div>
           </header>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-             <div className="bg-slate-900 p-8 rounded-[40px] text-white space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             <div className="bg-slate-900 p-5 rounded-2xl text-white space-y-2">
                <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Global Revenue</p>
-               <h3 className="text-4xl font-black tracking-tighter text-blue-400">${globalArr.toLocaleString()} <span className="text-xs text-slate-500 font-bold tracking-normal text-white/50">USD</span></h3>
+               <h3 className="text-2xl font-black tracking-tighter text-blue-400">${globalArr.toLocaleString()} <span className="text-xs text-white/40 font-bold">USD</span></h3>
                <p className="text-xs text-emerald-400 font-bold flex items-center gap-1"><ArrowRightCircle size={12} /> Orders (30d): {ordersLast30Days}</p>
              </div>
-             <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm space-y-4">
+             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Active Stores</p>
-               <h3 className="text-4xl font-black tracking-tighter text-slate-900">{stores.length} <span className="text-xs text-slate-400 font-bold tracking-normal italic uppercase">Tenants</span></h3>
-               <p className="text-xs text-blue-500 font-bold">New Stores (30d): {newStoresLast30Days}</p>
+               <h3 className="text-2xl font-black tracking-tighter text-slate-900">{stores.length} <span className="text-xs text-slate-400 font-bold italic uppercase">Tenants</span></h3>
+               <p className="text-xs text-blue-500 font-bold">New (30d): {newStoresLast30Days}</p>
              </div>
-             <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm space-y-4">
+             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
                 <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Support Load</p>
-                <h3 className="text-4xl font-black tracking-tighter text-slate-900">{claims.length} <span className="text-xs text-slate-400 font-bold tracking-normal italic uppercase">Avg Tix</span></h3>
+                <h3 className="text-2xl font-black tracking-tighter text-slate-900">{claims.length} <span className="text-xs text-slate-400 font-bold italic uppercase">Tickets</span></h3>
                 <p className="text-xs text-rose-500 font-bold">Priority Resolution: Active</p>
              </div>
           </div>
 
-          <StoreManager stores={stores} onSelectStore={(s) => { setSelectedAdminStoreId(s.id); setActiveTab('dashboard'); }} onProvisionStore={() => openModal('Store')} />
+          <StoreManager stores={stores} leads={leads} orders={orders} onSelectStore={(s) => { setSelectedAdminStoreId(s.id); setActiveTab('dashboard'); handleRoleSwitch(UserRole.CUSTOMER); }} onProvisionStore={() => openModal('Store')} onOpenSettings={(s) => setStoreSettingsTarget(s)} />
         </div>
       );
     }
 
     switch (activeTab) {
       case 'dashboard': return <Dashboard leads={leads} orders={orders} claims={claims} customers={customers} />;
-      case 'leads': return <LeadList leads={leads} role={currentUser.role} onUpdateStatus={(id, s) => setLeads((prev: Lead[]) => prev.map((l) => l.id === id ? {...l, status: s} : l))} onConvert={handleConvertLead} onDelete={(id) => handleDelete('lead', id)} onEdit={(lead) => openModal('Lead', lead)} />;
-      case 'customers': return (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-900 tracking-tighter">Customers</h3><button onClick={() => openModal('Customer')} className="px-6 py-2 bg-slate-200 hover:bg-slate-300 rounded-lg text-xs font-black uppercase tracking-widest transition-colors">Add Customer</button></div>
-          <FilterBar query={tableSearch} setQuery={setTableSearch} filter={tableFilter} setFilter={setTableFilter} options={[{ value: 'all', label: 'All Accounts' }]} />
-          <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left min-w-[900px]">
-                <thead className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                  <tr>
-                    <th className="px-8 py-4">First Name</th>
-                    <th className="px-8 py-4">Last Name</th>
-                    <th className="px-8 py-4">Email</th>
-                    <th className="px-8 py-4">Phone</th>
-                    <th className="px-8 py-4">Created At</th>
-                    {selectedAdminStoreId === 'all' && currentUser.role === UserRole.ADMIN && <th className="px-8 py-4">Tenant</th>}
-                    <th className="px-8 py-4 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredCustomersTable.map(c => {
-                    const tenant = stores.find(s => s.id === c.storeId);
-                    return (
-                      <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-8 py-4 text-sm font-bold text-slate-800">{c.firstName}</td>
-                        <td className="px-8 py-4 text-sm font-bold text-slate-800">{c.lastName}</td>
-                        <td className="px-8 py-4 text-sm text-blue-600 font-bold">{c.email}</td>
-                        <td className="px-8 py-4 text-sm text-slate-800">{c.phone || '-'}</td>
-                        <td className="px-8 py-4 text-sm text-slate-500">{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '-'}</td>
-                        {selectedAdminStoreId === 'all' && currentUser.role === UserRole.ADMIN && (
-                          <td className="px-8 py-4"><span className="text-[10px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-100">{tenant?.name || 'Unknown'}</span></td>
-                        )}
-                        <td className="px-8 py-4 flex gap-2 justify-end">
-                          {renderTableActions(['view', 'edit', 'delete'], 'Customer', c)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+      case 'leads': {
+        const activeStore = stores.find((s: any) => s.id === effectiveStoreId) || null;
+        const exportLeadsCSV = () => {
+          const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Source', 'Status', 'Created At'];
+          const rows = leads.map(l => [l.firstName, l.lastName, l.email, l.phone, l.source, l.status, new Date(l.createdAt).toLocaleDateString()]);
+          const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+          const blob = new Blob([csv], { type: 'text/csv' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `leads-${new Date().toISOString().split('T')[0]}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+        };
+        return (
+          <div className="space-y-4">
+            <div className="flex justify-end gap-2">
+              {currentUser.role === UserRole.ADMIN && (
+                <button onClick={() => { setImportStatus('idle'); setImportResult(null); setImportFile(null); setImportModalOpen(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-colors shadow-sm shadow-blue-500/20">
+                  <Upload size={13} /> Import CSV
+                </button>
+              )}
+              <button onClick={exportLeadsCSV} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-colors shadow-sm">
+                <Download size={13} /> Export CSV
+              </button>
+            </div>
+            <LeadList leads={leads} role={currentUser.role} activeStore={activeStore} onUpdateStatus={async (id, s) => { const lead = leads.find((l: Lead) => l.id === id); if (lead) { try { await db.leads.update(id, { ...lead, status: s }); setLeads((prev: Lead[]) => prev.map((l: Lead) => l.id === id ? {...l, status: s} : l)); } catch (err) { console.error('Failed to update lead status:', err); } } }} onConvert={handleConvertLead} onDelete={(id) => handleDelete('lead', id)} onBulkDelete={async (ids) => { for (const id of ids) { await db.leads.delete(id); } setLeads(prev => prev.filter(l => !ids.includes(l.id))); }} onEdit={(lead) => openModal('Lead', lead)} onSaveDigest={async (enabled, time, statuses) => { await db.stores.update(effectiveStoreId, { dailyDigestEnabled: enabled, dailyDigestTime: time, dailyDigestStatuses: statuses }); setStores((prev: any[]) => prev.map((s: any) => s.id === effectiveStoreId ? { ...s, dailyDigestEnabled: enabled, dailyDigestTime: time, dailyDigestStatuses: statuses } : s)); }} />
+          </div>
+        );
+      }
+      case 'customers': {
+        if (selectedCustomerId) {
+          const profileCustomer = customers.find(c => c.id === selectedCustomerId);
+          if (profileCustomer) {
+            return (
+              <CustomerProfile
+                customer={profileCustomer}
+                orders={orders}
+                events={events}
+                claims={claims}
+                onBack={() => setSelectedCustomerId(null)}
+                onEdit={() => openModal('Customer', profileCustomer)}
+                onNewOrder={() => { openModal('Order'); }}
+                onNewEvent={() => { openModal('Event'); }}
+                onNewClaim={() => { openModal('Claim'); }}
+              />
+            );
+          }
+        }
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center"><h3 className="text-xl font-black text-slate-900 tracking-tighter">Customers</h3><button onClick={() => openModal('Customer')} className="px-5 py-2 bg-slate-900 hover:bg-blue-600 text-white rounded-lg text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2"><Plus size={13} /> New</button></div>
+            <FilterBar query={tableSearch} setQuery={setTableSearch} filter={tableFilter} setFilter={setTableFilter} options={[{ value: 'all', label: 'All Accounts' }]} />
+            <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left min-w-[900px]">
+                  <thead className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                    <tr>
+                      <th className="px-8 py-4">Name</th>
+                      <th className="px-8 py-4">Email</th>
+                      <th className="px-8 py-4">Phone</th>
+                      <th className="px-8 py-4">Orders</th>
+                      <th className="px-8 py-4">Created At</th>
+                      {selectedAdminStoreId === 'all' && currentUser.role === UserRole.ADMIN && <th className="px-8 py-4">Tenant</th>}
+                      <th className="px-8 py-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredCustomersTable.map(c => {
+                      const tenant = stores.find(s => s.id === c.storeId);
+                      const custOrderCount = orders.filter(o => o.customerId === c.id).length;
+                      return (
+                        <tr key={c.id} onClick={() => setSelectedCustomerId(c.id)} className="hover:bg-slate-50 transition-colors cursor-pointer">
+                          <td className="px-8 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black flex-shrink-0">
+                                {c.firstName[0]}{c.lastName[0]}
+                              </div>
+                              <span className="text-sm font-bold text-slate-800 hover:text-blue-600 transition-colors">{c.firstName} {c.lastName}</span>
+                            </div>
+                          </td>
+                          <td className="px-8 py-4 text-sm text-blue-600 font-bold">{c.email}</td>
+                          <td className="px-8 py-4 text-sm text-slate-800">{c.phone || '-'}</td>
+                          <td className="px-8 py-4 text-sm font-black text-slate-700">{custOrderCount}</td>
+                          <td className="px-8 py-4 text-sm text-slate-500">{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '-'}</td>
+                          {selectedAdminStoreId === 'all' && currentUser.role === UserRole.ADMIN && (
+                            <td className="px-8 py-4"><span className="text-[10px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-100">{tenant?.name || 'Unknown'}</span></td>
+                          )}
+                          <td className="px-8 py-4" onClick={e => e.stopPropagation()}>
+                            <div className="flex gap-2 justify-end">
+                              {renderTableActions(['view', 'edit', 'delete'], 'Customer', c)}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      );
+        );
+      }
       case 'sales-orders':
       case 'sales-quotes': {
         const statusFilter = activeTab === 'sales-quotes' ? 'Quote' : activeTab === 'sales-invoices' ? 'Invoiced' : 'Processing';
@@ -1471,9 +1739,25 @@ const App: React.FC = () => {
             : o.status === statusFilter
         ));
 
+        const showKanban = ordersKanbanView && activeTab === 'sales-orders';
         return (
           <div className="space-y-6">
-            <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-900 tracking-tighter">{displayLabel} Operations</h3><button onClick={() => openModal(displayLabel)} className="px-6 py-2 bg-slate-200 hover:bg-slate-300 rounded-lg text-xs font-black uppercase tracking-widest transition-colors">Draft {displayLabel}</button></div>
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-black text-slate-900 tracking-tighter">{displayLabel}s</h3>
+              <div className="flex items-center gap-3">
+                {activeTab === 'sales-orders' && (
+                  <div className="flex bg-slate-100 border border-slate-200 rounded-xl p-1 gap-1">
+                    <button onClick={() => setOrdersKanbanView(false)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!ordersKanbanView ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Table</button>
+                    <button onClick={() => setOrdersKanbanView(true)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${ordersKanbanView ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Kanban</button>
+                  </div>
+                )}
+                <button onClick={() => openModal(displayLabel)} className="px-5 py-2 bg-slate-900 hover:bg-blue-600 text-white rounded-lg text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2"><Plus size={13} /> New</button>
+              </div>
+            </div>
+            {showKanban ? (
+              <OrderKanban orders={orders} customers={customers} onEdit={(o) => openModal('Order', o)} />
+            ) : (
+            <>
             <FilterBar query={tableSearch} setQuery={setTableSearch} filter={tableFilter} setFilter={setTableFilter} options={[{ value: 'all', label: `All ${displayPlural}` }]} />
             <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
@@ -1485,7 +1769,7 @@ const App: React.FC = () => {
                     {scopedOrders.map(order => {
                       const customer = customers.find(c => c.id === order.customerId);
                       const allowConvert = activeTab === 'sales-quotes';
-                      const actions = allowConvert ? ['view', 'edit', 'delete', 'convert'] : ['view', 'edit', 'delete'];
+                      const actions = allowConvert ? ['view', 'email', 'edit', 'delete', 'convert'] : ['view', 'email', 'edit', 'delete'];
                       return (
                         <tr key={order.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-8 py-4 text-xs font-mono text-slate-400">{order.id.slice(-8)}</td>
@@ -1504,6 +1788,8 @@ const App: React.FC = () => {
                 )}
               </div>
             </div>
+            </>
+            )}
           </div>
         );
       }
@@ -1564,8 +1850,11 @@ const App: React.FC = () => {
       );
       case 'reports': return <Reports leads={leads} orders={orders} claims={claims} />;
       case 'accounting': return <Accounting orders={orders} />;
+      case 'help': return <Help />;
+      case 'notes': return <Notes />;
       case 'settings': {
         const currentStore = stores.find(s => s.id === effectiveStoreId) || null;
+        const isGlobalView = currentUser.role === UserRole.ADMIN && selectedAdminStoreId === 'all';
         return (
           <Settings
             storeId={effectiveStoreId}
@@ -1573,6 +1862,7 @@ const App: React.FC = () => {
             stores={stores}
             currentUserRole={currentUser.role}
             onLeadAdded={(newLead) => setLeads(prev => [newLead, ...prev])}
+            variant={isGlobalView ? 'platform' : 'full'}
           />
         );
       }
@@ -1581,15 +1871,143 @@ const App: React.FC = () => {
   };
 
   return (
-    <Layout 
-      activeTab={activeTab} 
-      setActiveTab={setActiveTab} 
-      currentUser={currentUser} 
+    <Layout
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      currentUser={currentUser}
       onRoleSwitch={handleRoleSwitch}
       selectedAdminStoreId={selectedAdminStoreId}
       setSelectedAdminStoreId={setSelectedAdminStoreId}
       stores={stores}
+      leads={leads}
     >
+      {storeSettingsTarget && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-start justify-center p-6 overflow-y-auto animate-in fade-in duration-200" onClick={(e) => { if (e.target === e.currentTarget) setStoreSettingsTarget(null); }}>
+          <div className="bg-slate-50 w-full max-w-3xl rounded-[32px] shadow-2xl border border-slate-200 my-8">
+            <div className="px-8 py-6 bg-white rounded-t-[32px] border-b border-slate-200 flex items-center justify-between sticky top-0 z-10">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">Store Settings</p>
+                <h3 className="text-xl font-black text-slate-900 tracking-tighter">{storeSettingsTarget.name}</h3>
+              </div>
+              <button onClick={() => setStoreSettingsTarget(null)} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all"><X size={20} /></button>
+            </div>
+            <div className="p-8">
+              <Settings
+                storeId={storeSettingsTarget.id}
+                activeStore={storeSettingsTarget}
+                stores={stores}
+                currentUserRole={currentUser.role}
+                variant="store"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {importModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200" onClick={(e) => { if (e.target === e.currentTarget) setImportModalOpen(false); }}>
+          <div className="bg-white w-full max-w-xl rounded-[32px] shadow-2xl border border-slate-200 overflow-hidden">
+            {/* Header */}
+            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">Superadmin Tool</p>
+                <h3 className="text-xl font-black text-slate-900 tracking-tighter">Import Leads from CSV</h3>
+              </div>
+              <button onClick={() => setImportModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all"><X size={20} /></button>
+            </div>
+
+            <div className="p-8 space-y-6">
+              {/* Instructions */}
+              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-700 flex items-center gap-1.5"><Info size={11} /> CSV Format Instructions</p>
+                <div className="space-y-2 text-xs text-blue-800 font-semibold">
+                  <p>Your CSV must have a <strong>header row</strong> as the first line. Supported column names:</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1">
+                    {[
+                      ['first_name / firstname', 'First name'],
+                      ['last_name / lastname', 'Last name'],
+                      ['name / full_name', 'Full name (split automatically)'],
+                      ['email', 'Email address'],
+                      ['phone', 'Phone number'],
+                      ['source', 'Lead source (e.g. Facebook)'],
+                      ['status', 'New / Contacted / Qualified / Closed'],
+                      ['notes / message', 'Notes or message'],
+                      ['created_at / date', 'Original lead date — e.g. 03/14/2026 4:11PM (AM/PM must be uppercase)'],
+                    ].map(([col, desc]) => (
+                      <div key={col} className="contents">
+                        <code className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono">{col}</code>
+                        <span className="text-[10px] text-blue-600">{desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="pt-1 text-[10px] text-blue-600">Column names are <strong>case-insensitive</strong>. Extra columns are ignored. Rows missing a name, email, and phone are skipped. Status defaults to <strong>New</strong> if unrecognized.</p>
+                </div>
+                <div className="border-t border-blue-100 pt-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">Example Row</p>
+                  <code className="text-[10px] font-mono text-blue-700 block bg-blue-100/60 px-3 py-2 rounded-lg">first_name,last_name,email,phone,source,created_at<br/>John,Smith,john@example.com,555-1234,Facebook,03/14/2026 4:11PM</code>
+                </div>
+              </div>
+
+              {/* File picker */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Select CSV File</label>
+                <div
+                  onClick={() => importFileRef.current?.click()}
+                  className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${importFile ? 'border-blue-400 bg-blue-50' : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'}`}
+                >
+                  <Upload size={24} className={`mx-auto mb-2 ${importFile ? 'text-blue-500' : 'text-slate-300'}`} />
+                  {importFile
+                    ? <p className="text-sm font-black text-blue-700">{importFile.name}</p>
+                    : <p className="text-sm font-bold text-slate-400">Click to choose a .csv file</p>
+                  }
+                  <input
+                    ref={importFileRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={e => { setImportFile(e.target.files?.[0] || null); setImportStatus('idle'); setImportResult(null); }}
+                  />
+                </div>
+              </div>
+
+              {/* Result */}
+              {importStatus === 'done' && importResult && (
+                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 space-y-1 animate-in fade-in duration-200">
+                  <p className="text-xs font-black text-emerald-700 flex items-center gap-1.5"><CheckCircle2 size={14} /> Import complete</p>
+                  <p className="text-xs text-emerald-600 font-semibold">{importResult.imported} leads imported · {importResult.skipped} skipped</p>
+                  {importResult.errors.length > 0 && (
+                    <div className="mt-2 space-y-0.5 max-h-24 overflow-y-auto">
+                      {importResult.errors.map((e, i) => <p key={i} className="text-[10px] text-amber-600 font-semibold">{e}</p>)}
+                    </div>
+                  )}
+                </div>
+              )}
+              {importStatus === 'error' && importResult && (
+                <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 animate-in fade-in duration-200">
+                  <p className="text-xs font-black text-rose-700 flex items-center gap-1.5"><AlertTriangle size={14} /> Import failed</p>
+                  {importResult.errors.map((e, i) => <p key={i} className="text-[10px] text-rose-600 font-semibold mt-1">{e}</p>)}
+                </div>
+              )}
+
+              {/* Action */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={handleImportLeads}
+                  disabled={!importFile || importStatus === 'uploading' || importStatus === 'parsing'}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-500/20"
+                >
+                  <Upload size={14} />
+                  {importStatus === 'parsing' ? 'Parsing...' : importStatus === 'uploading' ? 'Uploading...' : 'Import Leads'}
+                </button>
+                <button onClick={() => setImportModalOpen(false)} className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isQuickCustomerOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in zoom-in-95 duration-200">
             <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
@@ -1653,7 +2071,10 @@ const App: React.FC = () => {
             <div className="p-10 flex-1 overflow-y-auto custom-scrollbar">{renderModalContent()}</div>
             <div className="px-10 py-8 bg-slate-50 border-t border-slate-100 flex justify-end gap-4">
               <button onClick={closeModal} className="px-8 py-3 text-xs font-black text-slate-500 uppercase tracking-widest hover:bg-slate-100 rounded-xl transition-colors">Discard</button>
-              {!modalType.startsWith('View') && <button onClick={handleSave} className="px-10 py-3 bg-blue-600 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"><Save size={14} /> Commit Changes</button>}
+              {(modalType.toLowerCase().includes('order') || modalType.toLowerCase().includes('quote')) && (
+                <button onClick={() => handleSendInvoiceEmail()} disabled={emailSending} className="px-8 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:scale-100"><Mail size={14} /> {emailSending ? 'Sending...' : 'Email Invoice'}</button>
+              )}
+              {(!modalType.startsWith('View') || modalType.toLowerCase().includes('order') || modalType.toLowerCase().includes('quote')) && <button onClick={handleSave} className="px-10 py-3 bg-blue-600 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"><Save size={14} /> Commit Changes</button>}
             </div>
           </div>
         </div>

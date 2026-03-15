@@ -1,15 +1,41 @@
 
-import React from 'react';
-import { CabinetStore } from '../types';
-import { Building2, ExternalLink, ShieldCheck, Mail, Calendar, Settings, Users, ArrowRight, Plus } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { CabinetStore, Lead, Order } from '../types';
+import { Building2, ExternalLink, ShieldCheck, Mail, Calendar, Settings, Users, ArrowRight, Plus, TrendingUp, Zap } from 'lucide-react';
 
 interface StoreManagerProps {
   stores: CabinetStore[];
+  leads?: Lead[];
+  orders?: Order[];
   onSelectStore: (store: CabinetStore) => void;
   onProvisionStore?: () => void;
+  onOpenSettings?: (store: CabinetStore) => void;
 }
 
-const StoreManager: React.FC<StoreManagerProps> = ({ stores, onSelectStore, onProvisionStore }) => {
+const StoreManager: React.FC<StoreManagerProps> = ({ stores, leads = [], orders = [], onSelectStore, onProvisionStore, onOpenSettings }) => {
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const storeHealth = useMemo(() => {
+    const map: Record<string, { leadsThisWeek: number; revenueThisMonth: number; lastActivity: string | null }> = {};
+    stores.forEach(s => { map[s.id] = { leadsThisWeek: 0, revenueThisMonth: 0, lastActivity: null }; });
+    leads.forEach(l => {
+      if (!map[l.storeId]) return;
+      const d = new Date(l.createdAt);
+      if (d >= weekAgo) map[l.storeId].leadsThisWeek++;
+      if (!map[l.storeId].lastActivity || d > new Date(map[l.storeId].lastActivity!)) {
+        map[l.storeId].lastActivity = l.createdAt;
+      }
+    });
+    orders.forEach(o => {
+      if (!map[o.storeId]) return;
+      const d = new Date(o.createdAt);
+      if (d >= monthAgo) map[o.storeId].revenueThisMonth += o.amount;
+    });
+    return map;
+  }, [stores, leads, orders]);
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -21,7 +47,7 @@ const StoreManager: React.FC<StoreManagerProps> = ({ stores, onSelectStore, onPr
           onClick={onProvisionStore}
           className="px-8 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl shadow-slate-900/20"
         >
-          Provision New Tenant
+          + New Tenant
         </button>
       </div>
 
@@ -54,12 +80,12 @@ const StoreManager: React.FC<StoreManagerProps> = ({ stores, onSelectStore, onPr
 
               <div className="grid grid-cols-2 gap-4 pt-6 border-t border-slate-50">
                  <div className="space-y-1">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Plan</p>
-                    <p className="text-xs font-bold text-slate-700">Enterprise Pro</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Zap size={9} /> Leads / 7d</p>
+                    <p className="text-xs font-bold text-slate-700">{storeHealth[store.id]?.leadsThisWeek ?? 0}</p>
                  </div>
                  <div className="space-y-1">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Active Leads</p>
-                    <p className="text-xs font-bold text-slate-700">242 Total</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><TrendingUp size={9} /> Rev / 30d</p>
+                    <p className="text-xs font-bold text-slate-700">${(storeHealth[store.id]?.revenueThisMonth ?? 0).toLocaleString()}</p>
                  </div>
               </div>
 
@@ -72,6 +98,12 @@ const StoreManager: React.FC<StoreManagerProps> = ({ stores, onSelectStore, onPr
                   <Calendar size={14} className="text-slate-300" />
                   Provisioned {new Date(store.createdAt).toLocaleDateString()}
                 </div>
+                {storeHealth[store.id]?.lastActivity && (
+                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-500">
+                    <Zap size={14} className="text-emerald-300" />
+                    Last activity {new Date(storeHealth[store.id].lastActivity!).toLocaleDateString()}
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 flex gap-2">
@@ -81,7 +113,11 @@ const StoreManager: React.FC<StoreManagerProps> = ({ stores, onSelectStore, onPr
                 >
                   <ShieldCheck size={14} /> Enter Store
                 </button>
-                <button className="w-12 h-12 flex items-center justify-center bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors">
+                <button
+                  onClick={() => onOpenSettings?.(store)}
+                  className="w-12 h-12 flex items-center justify-center bg-slate-100 text-slate-600 rounded-xl hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                  title="Store Settings"
+                >
                   <Settings size={18} />
                 </button>
               </div>
@@ -97,7 +133,7 @@ const StoreManager: React.FC<StoreManagerProps> = ({ stores, onSelectStore, onPr
            <div className="w-20 h-20 bg-white border border-slate-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
               <Plus size={32} />
            </div>
-           <span className="text-xs font-black uppercase tracking-widest">Provision Tenant Slot</span>
+           <span className="text-xs font-black uppercase tracking-widest">New Tenant</span>
         </button>
       </div>
     </div>

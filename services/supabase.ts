@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://ffhdrhvstaonvcludbgn.supabase.co';
-const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_in95qOxRG0FXiOVUHrGF_g_LL7uwRYi';
+const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmaGRyaHZzdGFvbnZjbHVkYmduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4ODY3NzQsImV4cCI6MjA4NDQ2Mjc3NH0.UIopiTghepauzs-IKLOa0zZ176JFwO3jbXS8jbeAZG8';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -36,7 +36,17 @@ const mapStoreFromDb = (store: any) => {
     ownerEmail: mapped.ownerEmail || 'owner@kitchenunity.com',
     status: mapped.status || 'active',
     createdAt: mapped.createdAt || new Date().toISOString(),
-    salesTax: mapped.salesTax || 0 // Added salesTax to the mapped object
+    salesTax: mapped.salesTax || 0,
+    facebookPageId: mapped.facebookPageId || '',
+    facebookPageToken: mapped.facebookPageToken || '',
+    contactEmail: mapped.contactEmail || '',
+    contactPhone: mapped.contactPhone || '',
+    website: mapped.website || '',
+    replyToEmail: mapped.replyToEmail || '',
+    dailyDigestEnabled: mapped.dailyDigestEnabled || false,
+    dailyDigestTime: mapped.dailyDigestTime || '17:00',
+    dailyDigestStatuses: mapped.dailyDigestStatuses || [],
+    timezone: mapped.timezone || 'America/New_York',
   };
 };
 
@@ -112,11 +122,21 @@ export const db = {
       return mapStoreFromDb(data[0]);
     },
     async update(id: string, store: any) {
-      const { error } = await supabase.from('stores').update({
-        name: store.name,
-        store_key: store.domain || store.storeKey,
-        salesTax: store.salesTax // Added salesTax to the update payload
-      }).eq('id', id);
+      const payload: any = {}
+      if (store.name !== undefined) payload.name = store.name
+      if (store.domain !== undefined || store.storeKey !== undefined) payload.store_key = store.domain || store.storeKey
+      if (store.salesTax !== undefined) payload.sales_tax = store.salesTax
+      if (store.facebookPageId !== undefined) payload.facebook_page_id = store.facebookPageId
+      if (store.facebookPageToken !== undefined) payload.facebook_page_token = store.facebookPageToken
+      if (store.contactEmail !== undefined) payload.contact_email = store.contactEmail
+      if (store.contactPhone !== undefined) payload.contact_phone = store.contactPhone
+      if (store.website !== undefined) payload.website = store.website
+      if (store.replyToEmail !== undefined) payload.reply_to_email = store.replyToEmail
+      if (store.dailyDigestEnabled !== undefined) payload.daily_digest_enabled = store.dailyDigestEnabled
+      if (store.dailyDigestTime !== undefined) payload.daily_digest_time = store.dailyDigestTime
+      if (store.dailyDigestStatuses !== undefined) payload.daily_digest_statuses = store.dailyDigestStatuses
+      if (store.timezone !== undefined) payload.timezone = store.timezone
+      const { error } = await supabase.from('stores').update(payload).eq('id', id);
       if (error) throw error;
     },
 
@@ -135,14 +155,16 @@ export const db = {
       return (data || []).map(mapLeadFromDb);
     },
     async create(lead: any) {
-      const { data, error } = await supabase.from('leads').insert([{
+      const payload: any = {
         store_id: lead.storeId,
         name: `${lead.firstName} ${lead.lastName}`.trim(),
         email: lead.email,
         phone: lead.phone,
         source: lead.source,
-        status: lead.status
-      }]).select();
+        status: lead.status,
+      };
+      if (lead.createdAt) payload.created_at = lead.createdAt;
+      const { data, error } = await supabase.from('leads').insert([payload]).select();
       if (error) throw error;
       return mapLeadFromDb(data[0]);
     },

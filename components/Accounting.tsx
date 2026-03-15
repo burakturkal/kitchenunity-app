@@ -18,6 +18,26 @@ interface AccountingProps {
   orders: Order[];
 }
 
+const downloadCSV = (orders: Order[]) => {
+  const headers = ['Order ID', 'Status', 'Amount', 'Tax Rate (%)', 'Non-Taxable', 'Created At'];
+  const rows = orders.map(o => [
+    o.id,
+    o.status,
+    o.amount.toFixed(2),
+    (o.taxRate || 0).toString(),
+    o.isNonTaxable ? 'Yes' : 'No',
+    new Date(o.createdAt).toLocaleDateString()
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ledger-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 const Accounting: React.FC<AccountingProps> = ({ orders }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -41,7 +61,7 @@ const Accounting: React.FC<AccountingProps> = ({ orders }) => {
           <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mt-1">Financial reconciliation & tax auditing</p>
         </div>
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-slate-900/20 hover:-translate-y-1 transition-all">
+          <button onClick={() => downloadCSV(orders)} className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-slate-900/20 hover:-translate-y-1 transition-all">
             <FileSpreadsheet size={16} /> Export CSV
           </button>
           <button className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-900 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all">

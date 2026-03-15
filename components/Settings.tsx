@@ -3,6 +3,7 @@ import { MOCK_SALES_TAX, MOCK_EXPENSE_TYPES } from '../services/mockData';
 import { ExpenseType } from '../types';
 import {
   Building2,
+  Database,
   Mail,
   Settings as SettingsIcon,
   UserPlus,
@@ -12,11 +13,16 @@ import {
   ImageIcon,
   Lock,
   X,
-  Code
+  Code,
+  Share2,
+  Bell,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { UserRole, Lead, CabinetStore } from '../types';
-import { db } from '../services/supabase';
+import { db, supabase } from '../services/supabase';
 import EmbedCodeGenerator from './EmbedCodeGenerator';
+import ClaimsEmbedGenerator from './ClaimsEmbedGenerator';
 
 interface SettingsProps {
   storeId?: string;
@@ -24,6 +30,7 @@ interface SettingsProps {
   activeStore?: CabinetStore | null;
   stores?: CabinetStore[];
   currentUserRole?: UserRole;
+  variant?: 'full' | 'platform' | 'store';
 }
 
 interface UserRow {
@@ -64,17 +71,41 @@ const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInputEleme
   />
 );
 
-const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, activeStore, stores = [], currentUserRole }) => {
+const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, activeStore, stores = [], currentUserRole, variant = 'full' }) => {
+  const showPlatform = variant === 'full' || variant === 'platform';
+  const showStore    = variant === 'full' || variant === 'store';
   const [users, setUsers] = useState<UserRow[]>([]);
   // --- Accounting State ---
-  const [accountingTab, setAccountingTab] = useState<'general' | 'accounting'>('general');
+  const [accountingTab, setAccountingTab] = useState<'account' | 'general' | 'accounting'>('account');
+  const [accountName, setAccountName] = useState('');
+  const [accountEmail, setAccountEmail] = useState('');
+  const [accountPassword, setAccountPassword] = useState('');
+  const [accountPasswordConfirm, setAccountPasswordConfirm] = useState('');
+  const [isSavingAccount, setIsSavingAccount] = useState(false);
+  const [showAccountPassword, setShowAccountPassword] = useState(false);
   const [salesTax, setSalesTax] = useState<number>(MOCK_SALES_TAX);
   const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>(MOCK_EXPENSE_TYPES);
   const [newExpenseType, setNewExpenseType] = useState<{ name: string; description?: string }>({ name: '', description: '' });
 
+  const [isSavingDigest, setIsSavingDigest] = useState(false);
+  const [digestEnabled, setDigestEnabled] = useState(activeStore?.dailyDigestEnabled || false);
+  const [digestTime, setDigestTime] = useState(activeStore?.dailyDigestTime || '17:00');
+  const [digestStatuses, setDigestStatuses] = useState<string[]>(activeStore?.dailyDigestStatuses || []);
+  const [digestTimezone, setDigestTimezone] = useState(activeStore?.timezone || 'America/New_York');
+
+  const [isSavingContact, setIsSavingContact] = useState(false);
+  const [contactEmail, setContactEmail] = useState(activeStore?.contactEmail || '');
+  const [contactPhone, setContactPhone] = useState(activeStore?.contactPhone || '');
+  const [contactWebsite, setContactWebsite] = useState(activeStore?.website || '');
+  const [contactReplyTo, setContactReplyTo] = useState(activeStore?.replyToEmail || '');
   const [isSavingStore, setIsSavingStore] = useState(false);
   const [storeName, setStoreName] = useState(activeStore?.name || '');
   const [storeDomain, setStoreDomain] = useState(activeStore?.domain || '');
+  const [fbTargetStoreId, setFbTargetStoreId] = useState(activeStore?.id || storeId || '');
+  const [fbPageId, setFbPageId] = useState(activeStore?.facebookPageId || '');
+  const [fbPageToken, setFbPageToken] = useState(activeStore?.facebookPageToken || '');
+  const [showToken, setShowToken] = useState(false);
+  const [isSavingFb, setIsSavingFb] = useState(false);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('store_user');
@@ -86,7 +117,20 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
   useEffect(() => {
     setStoreName(activeStore?.name || '');
     setStoreDomain(activeStore?.domain || '');
-  }, [activeStore?.id, activeStore?.name, activeStore?.domain]);
+    setContactEmail(activeStore?.contactEmail || '');
+    setContactPhone(activeStore?.contactPhone || '');
+    setContactWebsite(activeStore?.website || '');
+    setContactReplyTo(activeStore?.replyToEmail || '');
+    setDigestEnabled(activeStore?.dailyDigestEnabled || false);
+    setDigestTime(activeStore?.dailyDigestTime || '17:00');
+    setDigestStatuses(activeStore?.dailyDigestStatuses || []);
+    setDigestTimezone(activeStore?.timezone || 'America/New_York');
+    if (activeStore) {
+      setFbTargetStoreId(activeStore.id);
+      setFbPageId(activeStore.facebookPageId || '');
+      setFbPageToken(activeStore.facebookPageToken || '');
+    }
+  }, [activeStore?.id, activeStore?.name, activeStore?.domain, activeStore?.facebookPageId, activeStore?.facebookPageToken, activeStore?.contactEmail, activeStore?.contactPhone, activeStore?.website, activeStore?.replyToEmail]);
 
   useEffect(() => {
     setInviteStoreId(storeId || '');
@@ -125,6 +169,24 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
     fetchSalesTax();
   }, []);
 
+  const handleSaveDigest = async () => {
+    if (!activeStore?.id) { alert('No active store selected.'); return; }
+    setIsSavingDigest(true);
+    try {
+      await db.stores.update(activeStore.id, {
+        dailyDigestEnabled: digestEnabled,
+        dailyDigestTime: digestTime,
+        dailyDigestStatuses: digestStatuses,
+      });
+      alert('Digest settings saved.');
+    } catch (err) {
+      console.error('Digest save failed:', err);
+      alert('Save failed. Please try again.');
+    } finally {
+      setIsSavingDigest(false);
+    }
+  };
+
   const handleSaveStoreIdentity = async () => {
     if (!activeStore?.id) {
       alert('No active store selected.');
@@ -136,13 +198,109 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
     }
     setIsSavingStore(true);
     try {
-      await db.stores.update(activeStore.id, { name: storeName, domain: storeDomain });
+      await db.stores.update(activeStore.id, { name: storeName, domain: storeDomain, timezone: digestTimezone });
       alert('Store identity saved.');
     } catch (err) {
       console.error('Store identity save failed:', err);
       alert('Store update failed.');
     } finally {
       setIsSavingStore(false);
+    }
+  };
+
+  const handleSaveContact = async () => {
+    if (!activeStore?.id) {
+      alert('No active store selected.');
+      return;
+    }
+    setIsSavingContact(true);
+    try {
+      await db.stores.update(activeStore.id, {
+        contactEmail: contactEmail.trim(),
+        contactPhone: contactPhone.trim(),
+        website: contactWebsite.trim(),
+        replyToEmail: contactReplyTo.trim(),
+      });
+      alert('Contact info saved.');
+    } catch (err) {
+      console.error('Contact save failed:', err);
+      alert('Save failed. Please try again.');
+    } finally {
+      setIsSavingContact(false);
+    }
+  };
+
+  // Load current user info into account form on mount
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setAccountEmail(user.email || '');
+        setAccountName(user.user_metadata?.full_name || '');
+      }
+    };
+    loadUser();
+  }, []);
+
+  const handleSaveAccount = async () => {
+    setIsSavingAccount(true);
+    try {
+      const updates: any = {};
+      if (accountName.trim()) updates.data = { full_name: accountName.trim() };
+
+      if (accountPassword.trim()) {
+        if (accountPassword !== accountPasswordConfirm) {
+          alert('Passwords do not match.');
+          setIsSavingAccount(false);
+          return;
+        }
+        if (accountPassword.length < 6) {
+          alert('Password must be at least 6 characters.');
+          setIsSavingAccount(false);
+          return;
+        }
+        updates.password = accountPassword.trim();
+      }
+
+      if (accountEmail.trim()) updates.email = accountEmail.trim();
+
+      const { error } = await supabase.auth.updateUser(updates);
+      if (error) throw error;
+
+      setAccountPassword('');
+      setAccountPasswordConfirm('');
+      alert('Account updated successfully.');
+    } catch (err: any) {
+      console.error('Account save failed:', err);
+      alert(err?.message || 'Save failed. Please try again.');
+    } finally {
+      setIsSavingAccount(false);
+    }
+  };
+
+  const handleSaveFacebook = async () => {
+    if (!fbTargetStoreId) {
+      alert('Please select a store.');
+      return;
+    }
+    setIsSavingFb(true);
+    try {
+      await db.stores.update(fbTargetStoreId, { facebookPageId: fbPageId.trim(), facebookPageToken: fbPageToken.trim() });
+      // Keep facebook_page_store_map in sync — this is what the webhook reads.
+      // Non-blocking: if RLS denies this (e.g. migration not yet applied), the stores save above still succeeds.
+      supabase.from('facebook_page_store_map').upsert({
+        facebook_page_id: fbPageId.trim(),
+        store_id: fbTargetStoreId,
+        page_token: fbPageToken.trim(),
+      }, { onConflict: 'facebook_page_id' }).then(({ error }) => {
+        if (error) console.warn('[FB map sync] Could not update facebook_page_store_map:', error.message);
+      });
+      alert('Facebook Lead Ads settings saved.');
+    } catch (err) {
+      console.error('Facebook settings save failed:', err);
+      alert('Save failed. Please try again.');
+    } finally {
+      setIsSavingFb(false);
     }
   };
 
@@ -201,8 +359,12 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
 
   return (
       <div className="space-y-12 pb-24">
-      {/* ACCOUNTING TAB SWITCHER */}
+      {showPlatform && <>{/* ACCOUNTING TAB SWITCHER */}
       <div className="flex gap-4 mb-8">
+        <button
+          className={`px-6 py-2 rounded-2xl font-black uppercase text-xs tracking-widest border-2 ${accountingTab === 'account' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200'}`}
+          onClick={() => setAccountingTab('account')}
+        >Account</button>
         <button
           className={`px-6 py-2 rounded-2xl font-black uppercase text-xs tracking-widest border-2 ${accountingTab === 'general' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200'}`}
           onClick={() => setAccountingTab('general')}
@@ -212,6 +374,61 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
           onClick={() => setAccountingTab('accounting')}
         >Accounting</button>
       </div>
+
+      {accountingTab === 'account' && (
+        <div className="bg-white rounded-[40px] border border-slate-200 p-10 shadow-sm space-y-8 max-w-lg">
+          <SectionHeader title="My Account" icon={Lock} />
+          <div className="space-y-4">
+            <div>
+              <Label>Display Name</Label>
+              <Input value={accountName} onChange={e => setAccountName(e.target.value)} placeholder="Your name" />
+            </div>
+            <div>
+              <Label>Email Address</Label>
+              <Input type="email" value={accountEmail} onChange={e => setAccountEmail(e.target.value)} placeholder="you@example.com" />
+            </div>
+          </div>
+          <div className="border-t border-slate-100 pt-6 space-y-4">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Change Password</p>
+            <div>
+              <Label>New Password</Label>
+              <div className="relative">
+                <Input
+                  type={showAccountPassword ? 'text' : 'password'}
+                  value={accountPassword}
+                  onChange={e => setAccountPassword(e.target.value)}
+                  placeholder="Leave blank to keep current password"
+                  className="pr-12"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAccountPassword(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                >
+                  {showAccountPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <Label>Confirm New Password</Label>
+              <Input
+                type="password"
+                value={accountPasswordConfirm}
+                onChange={e => setAccountPasswordConfirm(e.target.value)}
+                placeholder="Repeat new password"
+              />
+            </div>
+          </div>
+          <button
+            onClick={handleSaveAccount}
+            disabled={isSavingAccount}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            <Save size={14} />
+            {isSavingAccount ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      )}
 
       {accountingTab === 'accounting' && (
         <div className="bg-white rounded-[40px] border-2 border-blue-500/20 p-10 shadow-xl shadow-blue-500/5 relative overflow-hidden space-y-12">
@@ -285,8 +502,10 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
           </button>
         </div>
       )}
+      </>}
+
       {/* EMBEDDED LEAD FORMS — superadmin only */}
-      {currentUserRole === UserRole.ADMIN && stores.length > 0 && (
+      {showStore && currentUserRole === UserRole.ADMIN && stores.length > 0 && (
         <div className="bg-white rounded-[40px] border-2 border-blue-500/20 p-10 shadow-xl shadow-blue-500/5 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-8 opacity-5">
             <Code size={120} className="text-blue-600" />
@@ -299,6 +518,94 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
         </div>
       )}
 
+      {/* EMBEDDED CLAIM FORMS — superadmin only */}
+      {showStore && currentUserRole === UserRole.ADMIN && stores.length > 0 && (
+        <div className="bg-white rounded-[40px] border-2 border-rose-500/20 p-10 shadow-xl shadow-rose-500/5 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-5">
+            <Code size={120} className="text-rose-600" />
+          </div>
+          <SectionHeader title="Embedded Claim Forms" icon={Code} />
+          <p className="text-sm text-slate-500 font-medium mb-8 -mt-4 max-w-xl">
+            Generate a snippet that store owners can paste on their website. Customers fill it out and the claim appears instantly in Claim Management — no login required.
+          </p>
+          <ClaimsEmbedGenerator stores={stores} />
+        </div>
+      )}
+
+      {/* FACEBOOK LEAD ADS — superadmin only */}
+      {showStore && currentUserRole === UserRole.ADMIN && <div className="bg-white rounded-[40px] border border-slate-200 p-10 shadow-sm">
+        <SectionHeader title="Facebook Lead Ads" icon={Share2} />
+        <p className="text-sm text-slate-500 font-medium mb-8 -mt-4 max-w-xl">
+          Connect this store's Facebook Page so that leads from your Lead Ad campaigns appear automatically in the CRM.
+        </p>
+        <div className="space-y-6 max-w-lg">
+          {!activeStore && stores.length > 0 && (
+            <div>
+              <Label>Store</Label>
+              <select
+                value={fbTargetStoreId}
+                onChange={(e) => {
+                  const s = stores.find(s => s.id === e.target.value);
+                  setFbTargetStoreId(e.target.value);
+                  setFbPageId(s?.facebookPageId || '');
+                  setFbPageToken(s?.facebookPageToken || '');
+                }}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 appearance-none"
+              >
+                <option value="">Select a store</option>
+                {stores.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div>
+            <Label>Facebook Page ID</Label>
+            <Input
+              value={fbPageId}
+              onChange={(e) => setFbPageId(e.target.value)}
+              placeholder="e.g. 123456789012345"
+            />
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">
+              Found in your Facebook Page settings under &ldquo;About &rsaquo; Page transparency&rdquo;
+            </p>
+          </div>
+          <div>
+            <Label>Page Access Token</Label>
+            <div className="relative">
+              <Input
+                type={showToken ? 'text' : 'password'}
+                value={fbPageToken}
+                onChange={(e) => setFbPageToken(e.target.value)}
+                placeholder="EAAxxxxxxx..."
+                className="pr-12"
+              />
+              <button
+                type="button"
+                onClick={() => setShowToken(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-700 transition-colors"
+                title={showToken ? 'Hide token' : 'Show token'}
+              >
+                {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">
+              Generate a long-lived token in your Facebook Developer App &rsaquo; Graph API Explorer. Keep this private.
+            </p>
+          </div>
+          <div className="pt-4">
+            <button
+              onClick={handleSaveFacebook}
+              disabled={isSavingFb}
+              className="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:-translate-y-1 transition-all disabled:opacity-60"
+            >
+              <Save size={14} /> {isSavingFb ? 'Saving...' : 'Save Facebook Settings'}
+            </button>
+          </div>
+        </div>
+      </div>}
+
+      {showStore && accountingTab === 'general' && <>
       {/* 1. STORE INFORMATION */}
       <div className="bg-white rounded-[40px] border border-slate-200 p-10 shadow-sm">
         <SectionHeader title="Store Information" icon={Building2} />
@@ -318,6 +625,22 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
                 <option>Cabinet Store</option>
                 <option>Cabinet & Installation</option>
                 <option>Design Studio</option>
+              </select>
+            </div>
+            <div>
+              <Label>Timezone</Label>
+              <select
+                value={digestTimezone}
+                onChange={e => setDigestTimezone(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 appearance-none"
+              >
+                <option value="America/New_York">Eastern Time (ET)</option>
+                <option value="America/Chicago">Central Time (CT)</option>
+                <option value="America/Denver">Mountain Time (MT)</option>
+                <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                <option value="America/Phoenix">Arizona (AZ)</option>
+                <option value="America/Anchorage">Alaska (AK)</option>
+                <option value="Pacific/Honolulu">Hawaii (HI)</option>
               </select>
             </div>
             <div>
@@ -365,23 +688,103 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
           <div className="space-y-6">
             <div>
               <Label>Primary Email</Label>
-              <Input type="email" defaultValue="ops@elitecabinets.com" />
+              <Input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="ops@yourstore.com" />
             </div>
             <div>
               <Label>Phone Number</Label>
-              <Input type="tel" defaultValue="(555) 012-3456" />
+              <Input type="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="(555) 012-3456" />
             </div>
           </div>
           <div className="space-y-6">
             <div>
               <Label>Website URL</Label>
-              <Input type="url" defaultValue="https://elitecabinets.com" />
+              <Input type="url" value={contactWebsite} onChange={(e) => setContactWebsite(e.target.value)} placeholder="https://yourstore.com" />
             </div>
             <div>
               <Label>Default Reply-to Email</Label>
-              <Input type="email" placeholder="No-reply fallback" />
+              <Input type="email" value={contactReplyTo} onChange={(e) => setContactReplyTo(e.target.value)} placeholder="No-reply fallback" />
             </div>
           </div>
+        </div>
+        <div className="mt-10 pt-10 border-t border-slate-100 flex justify-end">
+          <button
+            onClick={handleSaveContact}
+            disabled={isSavingContact}
+            className="flex items-center gap-2 px-10 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:-translate-y-1 transition-all shadow-xl shadow-slate-900/20 disabled:opacity-60"
+          >
+            <Save size={16} /> {isSavingContact ? 'Saving...' : 'Save Contact Info'}
+          </button>
+        </div>
+      </div>
+
+      {/* 3. LEAD DIGEST NOTIFICATIONS */}
+      <div className="bg-white rounded-[40px] border border-slate-200 p-10 shadow-sm">
+        <SectionHeader title="Lead Digest Notifications" icon={Bell} />
+        <p className="text-sm text-slate-500 font-medium mb-8 -mt-4 max-w-xl">
+          Get a daily email summary of your leads so you never miss an inquiry. New leads will show the time they were received.
+        </p>
+
+        {/* Toggle */}
+        <div className="flex items-center justify-between p-6 bg-slate-50 rounded-2xl border border-slate-100 mb-6 max-w-lg">
+          <div>
+            <p className="text-sm font-bold text-slate-800">Notify me at the end of the day</p>
+            <p className="text-xs text-slate-400 font-medium mt-0.5">Send a digest email at the time you choose below</p>
+          </div>
+          <button
+            onClick={() => setDigestEnabled(v => !v)}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${digestEnabled ? 'bg-blue-600' : 'bg-slate-200'}`}
+          >
+            <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${digestEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+        </div>
+
+        {digestEnabled && (
+          <div className="space-y-6 max-w-lg">
+            {/* Time picker */}
+            <div>
+              <Label>Send digest at</Label>
+              <input
+                type="time"
+                value={digestTime}
+                onChange={e => setDigestTime(e.target.value)}
+                className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+              />
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Time is in UTC. Adjust to match your local end of business.</p>
+            </div>
+
+            {/* Status checkboxes */}
+            <div>
+              <Label>Include leads with these statuses</Label>
+              <div className="grid grid-cols-2 gap-3 mt-1">
+                {['New', 'Contacted', 'Qualified', 'Closed', 'Archived'].map(status => {
+                  const checked = digestStatuses.includes(status);
+                  return (
+                    <label key={status} className={`flex items-center gap-3 p-4 rounded-2xl border-2 cursor-pointer transition-all ${checked ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-slate-50 hover:border-slate-200'}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => setDigestStatuses(prev => checked ? prev.filter(s => s !== status) : [...prev, status])}
+                        className="w-4 h-4 rounded accent-blue-600"
+                      />
+                      <span className="text-sm font-bold text-slate-700">{status}</span>
+                      {status === 'New' && <span className="ml-auto text-[10px] font-black text-blue-500 uppercase tracking-wider">+ times</span>}
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-3">New leads will include the time they were received in the email.</p>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-10 pt-10 border-t border-slate-100 flex justify-end">
+          <button
+            onClick={handleSaveDigest}
+            disabled={isSavingDigest}
+            className="flex items-center gap-2 px-10 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:-translate-y-1 transition-all shadow-xl shadow-slate-900/20 disabled:opacity-60"
+          >
+            <Save size={16} /> {isSavingDigest ? 'Saving...' : 'Save Digest Settings'}
+          </button>
         </div>
       </div>
 
@@ -482,6 +885,7 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
           </div>
         )}
       </div>
+      </>}
 
       {isInviteOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">

@@ -97,6 +97,16 @@ export interface CabinetStore {
   ownerEmail: string;
   status: 'active' | 'suspended' | 'trial';
   createdAt: string;
+  facebookPageId?: string;
+  facebookPageToken?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  website?: string;
+  replyToEmail?: string;
+  dailyDigestEnabled?: boolean;
+  dailyDigestTime?: string;
+  dailyDigestStatuses?: string[];
+  timezone?: string;
 }
 
 export interface Lead {

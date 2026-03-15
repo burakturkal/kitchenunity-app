@@ -1,16 +1,17 @@
 
 import React from 'react';
-import { 
-  LayoutDashboard, 
-  Users, 
-  DollarSign, 
-  AlertCircle, 
-  ListTodo, 
-  Package, 
-  BarChart3, 
-  Calendar, 
-  BookOpen, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Users,
+  DollarSign,
+  AlertCircle,
+  ListTodo,
+  Package,
+  BarChart3,
+  Calendar,
+  BookOpen,
+  BookMarked,
+  Settings,
   LogOut,
   Store,
   Sparkles,
@@ -20,13 +21,15 @@ import {
   Clock,
   Check,
   FileText,
-  Quote
+  Quote,
+  StickyNote
 } from 'lucide-react';
 
 export interface NavItem {
   id: string;
   label: string;
   icon: any;
+  adminOnly?: boolean;
   subItems?: { id: string; label: string; icon: any }[];
 }
 
@@ -48,6 +51,8 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'reports', label: 'Reports', icon: BarChart3 },
   { id: 'planner', label: 'Planner', icon: Calendar },
   { id: 'accounting', label: 'Accounting', icon: BookOpen },
+  { id: 'help', label: 'Help & Docs', icon: BookMarked },
+  { id: 'notes', label: 'Admin Notes', icon: StickyNote, adminOnly: true },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
