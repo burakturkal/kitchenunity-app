@@ -17,8 +17,8 @@ export const mapToCamel = (item: any) => {
 
 export const resolveDomainToStoreId = () => {
   const hostname = window.location.hostname || '';
-  if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('web-platform') || hostname.includes('stackblitz') || hostname.includes('github.dev')) {
-    return 'store-1';
+  if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('web-platform') || hostname.includes('stackblitz') || hostname.includes('github.dev') || hostname === 'app.kitchenunity.com' || hostname === 'kitchenunity.com' || hostname === 'www.kitchenunity.com') {
+    return null;
   }
   const parts = hostname.split('.');
   if (parts.length >= 2 && parts[0] !== 'www') {
@@ -47,6 +47,7 @@ const mapStoreFromDb = (store: any) => {
     dailyDigestTime: mapped.dailyDigestTime || '17:00',
     dailyDigestStatuses: mapped.dailyDigestStatuses || [],
     timezone: mapped.timezone || 'America/New_York',
+    logoUrl: mapped.logoUrl || '',
   };
 };
 
@@ -136,6 +137,8 @@ export const db = {
       if (store.dailyDigestTime !== undefined) payload.daily_digest_time = store.dailyDigestTime
       if (store.dailyDigestStatuses !== undefined) payload.daily_digest_statuses = store.dailyDigestStatuses
       if (store.timezone !== undefined) payload.timezone = store.timezone
+      if (store.logo_url !== undefined) payload.logo_url = store.logo_url
+      if (store.logoUrl !== undefined) payload.logo_url = store.logoUrl
       const { error } = await supabase.from('stores').update(payload).eq('id', id);
       if (error) throw error;
     },
