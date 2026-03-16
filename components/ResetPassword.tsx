@@ -80,14 +80,27 @@ const ResetPassword: React.FC = () => {
             </div>
           </div>
           {error && <div className="text-red-500 text-sm text-center font-semibold animate-pulse">{error}</div>}
-          {success && <div className="text-green-600 text-sm text-center font-semibold animate-in fade-in duration-500">{success}</div>}
-          <button
-            type="submit"
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl text-lg shadow-md transition disabled:opacity-60"
-            disabled={loading}
-          >
-            {loading ? 'Updating...' : 'Reset Password'}
-          </button>
+          {success && (
+            <div className="flex flex-col items-center gap-3 animate-in fade-in duration-500">
+              <div className="text-green-600 text-sm text-center font-semibold">{success}</div>
+              <button
+                type="button"
+                onClick={() => window.location.href = '/'}
+                className="w-full py-3 bg-slate-900 hover:bg-blue-600 text-white font-black rounded-xl text-sm shadow-md transition"
+              >
+                Go to Login Page
+              </button>
+            </div>
+          )}
+          {!success && (
+            <button
+              type="submit"
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl text-lg shadow-md transition disabled:opacity-60"
+              disabled={loading}
+            >
+              {loading ? 'Updating...' : 'Reset Password'}
+            </button>
+          )}
         </form>
         <div className="mt-6 text-center text-xs text-slate-400">&copy; {new Date().getFullYear()} KitchenUnity. All rights reserved.</div>
       </div>
