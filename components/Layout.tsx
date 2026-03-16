@@ -51,6 +51,32 @@ const Layout: React.FC<LayoutProps> = ({
   const notifRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
 
+  const [showQbPopup, setShowQbPopup] = useState(false);
+  const [qbProgress, setQbProgress] = useState(100);
+
+  useEffect(() => {
+    if (sessionStorage.getItem('ku_qb_popup_seen')) return;
+    const showTimer = setTimeout(() => setShowQbPopup(true), 1000);
+    return () => clearTimeout(showTimer);
+  }, []);
+
+  useEffect(() => {
+    if (!showQbPopup) return;
+    sessionStorage.setItem('ku_qb_popup_seen', '1');
+    const start = Date.now();
+    const duration = 10000;
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
+      setQbProgress(remaining);
+      if (remaining === 0) {
+        clearInterval(interval);
+        setShowQbPopup(false);
+      }
+    }, 50);
+    return () => clearInterval(interval);
+  }, [showQbPopup]);
+
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0 });
   }, [activeTab]);
@@ -398,6 +424,25 @@ const Layout: React.FC<LayoutProps> = ({
           storeName={activeStoreName}
           onClose={() => setDesignModalOpen(false)}
         />
+      )}
+
+      {showQbPopup && (
+        <div className="fixed bottom-6 right-6 z-50 w-80 bg-slate-900 rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-500">
+          <div className="px-5 pt-5 pb-4">
+            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Migration</p>
+            <p className="text-sm font-bold text-white leading-snug mb-1">Moving from QuickBooks?</p>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              We can import your customers, products, and orders so you can run everything from one place.{' '}
+              <span className="text-blue-400 font-semibold">Contact us to get started.</span>
+            </p>
+          </div>
+          <div className="h-0.5 bg-slate-700">
+            <div
+              className="h-full bg-blue-500 transition-none"
+              style={{ width: `${qbProgress}%` }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
