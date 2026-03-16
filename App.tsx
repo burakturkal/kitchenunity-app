@@ -802,23 +802,26 @@ const App: React.FC = () => {
           const saved = await db.stores.create(newItemPayload);
           setStores((prev: CabinetStore[]) => [saved as any, ...prev]);
         } else if (displayType.includes('order') || displayType.includes('quote') || displayType.includes('invoice') || displayType.includes('sale')) {
-          // Validate stock before saving
-          for (const lineItem of newItemPayload.lineItems || []) {
-            const invItem = inventory.find((i: InventoryItem) => i.id === lineItem.productId);
-            if (invItem && invItem.trackStock && invItem.quantity < lineItem.quantity) {
-              alert(`Not enough stock for "${invItem.name}". Available: ${invItem.quantity}, requested: ${lineItem.quantity}.`);
-              return;
+          const isRealOrder = newItemPayload.status !== 'Quote';
+          if (isRealOrder) {
+            for (const lineItem of newItemPayload.lineItems || []) {
+              const invItem = inventory.find((i: InventoryItem) => i.id === lineItem.productId);
+              if (invItem && invItem.trackStock && invItem.quantity < lineItem.quantity) {
+                alert(`Not enough stock for "${invItem.name}". Available: ${invItem.quantity}, requested: ${lineItem.quantity}.`);
+                return;
+              }
             }
           }
           const saved = await db.orders.create(newItemPayload);
           setOrders((prev: Order[]) => [saved as any, ...prev]);
-          // Deduct inventory for tracked items
-          for (const lineItem of newItemPayload.lineItems || []) {
-            const invItem = inventory.find((i: InventoryItem) => i.id === lineItem.productId);
-            if (invItem && invItem.trackStock) {
-              const newQty = Math.max(0, invItem.quantity - lineItem.quantity);
-              await db.inventory.update(invItem.id, { ...invItem, quantity: newQty });
-              setInventory((prev: InventoryItem[]) => prev.map((i: InventoryItem) => i.id === invItem.id ? { ...i, quantity: newQty } : i));
+          if (isRealOrder) {
+            for (const lineItem of newItemPayload.lineItems || []) {
+              const invItem = inventory.find((i: InventoryItem) => i.id === lineItem.productId);
+              if (invItem && invItem.trackStock) {
+                const newQty = Math.max(0, invItem.quantity - lineItem.quantity);
+                await db.inventory.update(invItem.id, { ...invItem, quantity: newQty });
+                setInventory((prev: InventoryItem[]) => prev.map((i: InventoryItem) => i.id === invItem.id ? { ...i, quantity: newQty } : i));
+              }
             }
           }
         } else if (displayType.includes('inventory')) {
@@ -860,8 +863,25 @@ const App: React.FC = () => {
         await db.stores.delete(id);
         setStores((prev: CabinetStore[]) => prev.filter((s) => s.id !== id));
       } else if (['order', 'quote', 'invoice', 'sale'].includes(t)) {
+        const orderToDelete = orders.find((o: Order) => o.id === id);
         await db.orders.delete(id);
         setOrders((prev: Order[]) => prev.filter((o) => o.id !== id));
+        if (orderToDelete && orderToDelete.status !== 'Quote') {
+          const trackedLineItems = ((orderToDelete.lineItems || []) as any[]).filter((li: any) => {
+            const invItem = inventory.find((i: InventoryItem) => i.id === li.productId);
+            return invItem && invItem.trackStock;
+          });
+          if (trackedLineItems.length > 0 && window.confirm('Restock inventory for this order\'s products?')) {
+            for (const li of trackedLineItems) {
+              const invItem = inventory.find((i: InventoryItem) => i.id === li.productId);
+              if (invItem) {
+                const newQty = invItem.quantity + li.quantity;
+                await db.inventory.update(invItem.id, { ...invItem, quantity: newQty });
+                setInventory((prev: InventoryItem[]) => prev.map((i: InventoryItem) => i.id === invItem.id ? { ...i, quantity: newQty } : i));
+              }
+            }
+          }
+        }
       } else if (t.includes('inventory')) {
         await db.inventory.delete(id);
         setInventory((prev: InventoryItem[]) => prev.filter((i) => i.id !== id));
@@ -1010,18 +1030,61 @@ const App: React.FC = () => {
 
   const handleConvertQuote = async (quote: Order) => {
     if (!window.confirm(`Confirm order placement for Quote #${quote.id.slice(-6)}?`)) return;
+    for (const lineItem of (quote.lineItems || []) as any[]) {
+      const invItem = inventory.find((i: InventoryItem) => i.id === lineItem.productId);
+      if (invItem && invItem.trackStock && invItem.quantity < lineItem.quantity) {
+        alert(`Not enough stock for "${invItem.name}". Available: ${invItem.quantity}, requested: ${lineItem.quantity}.`);
+        return;
+      }
+    }
     const updated = { ...quote, status: 'Processing' };
     try {
       if (quote.id && !quote.id.toString().startsWith('gen-')) {
         await db.orders.update(quote.id, updated);
       }
       setOrders((prev: Order[]) => prev.map((o) => o.id === quote.id ? updated : o));
+      for (const lineItem of (quote.lineItems || []) as any[]) {
+        const invItem = inventory.find((i: InventoryItem) => i.id === lineItem.productId);
+        if (invItem && invItem.trackStock) {
+          const newQty = Math.max(0, invItem.quantity - lineItem.quantity);
+          await db.inventory.update(invItem.id, { ...invItem, quantity: newQty });
+          setInventory((prev: InventoryItem[]) => prev.map((i: InventoryItem) => i.id === invItem.id ? { ...i, quantity: newQty } : i));
+        }
+      }
     } catch (err) {
       console.error('Quote conversion failed:', err);
       alert('Conversion failure.');
       return;
     }
     setActiveTab('sales-orders');
+  };
+
+  const handleRevertToQuote = async (order: Order) => {
+    if (!window.confirm(`Revert Order #${order.id.slice(-6)} back to Quote?`)) return;
+    const updated = { ...order, status: 'Quote' };
+    try {
+      await db.orders.update(order.id, updated);
+      setOrders((prev: Order[]) => prev.map((o) => o.id === order.id ? updated : o));
+      const trackedLineItems = ((order.lineItems || []) as any[]).filter((li: any) => {
+        const invItem = inventory.find((i: InventoryItem) => i.id === li.productId);
+        return invItem && invItem.trackStock;
+      });
+      if (trackedLineItems.length > 0 && window.confirm('Restock inventory for this order\'s products?')) {
+        for (const li of trackedLineItems) {
+          const invItem = inventory.find((i: InventoryItem) => i.id === li.productId);
+          if (invItem) {
+            const newQty = invItem.quantity + li.quantity;
+            await db.inventory.update(invItem.id, { ...invItem, quantity: newQty });
+            setInventory((prev: InventoryItem[]) => prev.map((i: InventoryItem) => i.id === invItem.id ? { ...i, quantity: newQty } : i));
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Revert failed:', err);
+      alert('Revert failed.');
+      return;
+    }
+    setActiveTab('sales-quotes');
   };
 
   const filteredCustomersTable = useMemo(() => {
@@ -1279,7 +1342,19 @@ const App: React.FC = () => {
                     {lineItems.map(item => (
                       <tr key={item.id} className="text-sm">
                         <td className="px-4 py-2 font-bold">{item.productName}</td>
-                        <td className="px-4 py-2 text-center">{item.quantity}</td>
+                        <td className="px-4 py-2 text-center">
+                          <input
+                            type="number"
+                            min={1}
+                            value={item.quantity}
+                            onChange={e => {
+                              const newQty = Math.max(1, Number(e.target.value));
+                              const updated = lineItems.map((li: any) => li.id === item.id ? { ...li, quantity: newQty } : li);
+                              updateSelectedItem('lineItems', updated);
+                            }}
+                            className="w-14 text-center text-sm font-black border border-slate-200 rounded-lg px-1 py-0.5 focus:outline-none focus:border-blue-500"
+                          />
+                        </td>
                         <td className="px-4 py-2 text-right text-slate-500">${item.price.toFixed(2)}</td>
                         <td className="px-4 py-2 text-right font-black">${(item.price * item.quantity).toFixed(2)}</td>
                         <td className="px-4 py-2 text-right"><button onClick={() => removeLineItem(item.id)} className="text-rose-500 hover:bg-rose-50 p-1 rounded"><Trash2 size={12}/></button></td>
@@ -1567,11 +1642,12 @@ const App: React.FC = () => {
 
   const renderTableActions = (actions: string[], type: string, item: any) => (
     <div className="flex items-center gap-1 justify-end">
-       {actions.includes('convert') && <button onClick={() => handleConvertQuote(item)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Confirm Order"><ArrowRightCircle size={18} /></button>}
+       {actions.includes('convert') && <button onClick={() => handleConvertQuote(item)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Convert to Order"><ArrowRightCircle size={18} /></button>}
+       {actions.includes('revert') && <button onClick={() => handleRevertToQuote(item)} className="p-1.5 text-slate-500 hover:bg-slate-100 rounded transition-colors" title="Revert to Quote"><ArrowRightCircle size={18} className="rotate-180" /></button>}
        {actions.includes('view') && <button onClick={() => openModal(`View ${type}`, item)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="View"><Eye size={18} /></button>}
        {actions.includes('email') && <button onClick={() => handleSendInvoiceEmail(item, type.toLowerCase())} disabled={emailSending} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition-colors disabled:opacity-50" title="Email Invoice"><Mail size={18} /></button>}
        {actions.includes('edit') && <button onClick={() => openModal(type, item)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors" title="Edit"><Edit2 size={18} /></button>}
-       {actions.includes('delete') && (currentUser.role === UserRole.ADMIN || type.toLowerCase().includes('inventory')) && <button onClick={() => handleDelete(type, item.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors" title="Delete"><Trash2 size={18} /></button>}
+       {actions.includes('delete') && (currentUser.role === UserRole.ADMIN || type.toLowerCase().includes('inventory') || type.toLowerCase().includes('order') || type.toLowerCase().includes('quote') || type.toLowerCase().includes('invoice')) && <button onClick={() => handleDelete(type, item.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors" title="Delete"><Trash2 size={18} /></button>}
     </div>
   );
 
@@ -1791,13 +1867,26 @@ const App: React.FC = () => {
                     {scopedOrders.map(order => {
                       const customer = customers.find(c => c.id === order.customerId);
                       const allowConvert = activeTab === 'sales-quotes';
-                      const actions = allowConvert ? ['view', 'email', 'edit', 'delete', 'convert'] : ['view', 'email', 'edit', 'delete'];
+                      const actions = allowConvert ? ['view', 'email', 'edit', 'delete', 'convert'] : ['view', 'email', 'edit', 'delete', 'revert'];
+                      const orderStatuses = ['Processing', 'Invoiced', 'Shipped', 'Completed'];
                       return (
                         <tr key={order.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-8 py-4 text-xs font-mono text-slate-400">{order.id.slice(-8)}</td>
                           <td className="px-8 py-4 text-sm font-bold text-slate-800">{customer ? `${customer.firstName} ${customer.lastName}` : 'Direct Sale'}</td>
                           <td className="px-8 py-4 text-sm font-black text-blue-600">${order.amount.toFixed(2)}</td>
-                          <td className="px-8 py-4"><span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full ${order.status === ClaimStatus.RESOLVED ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>{order.status}</span></td>
+                          <td className="px-8 py-4">
+                            <select
+                              value={order.status}
+                              onChange={async (e) => {
+                                const updated = { ...order, status: e.target.value };
+                                await db.orders.update(order.id, updated);
+                                setOrders((prev: Order[]) => prev.map(o => o.id === order.id ? updated : o));
+                              }}
+                              className="text-[10px] font-black uppercase px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              {(allowConvert ? ['Quote'] : orderStatuses).map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          </td>
                           <td className="px-8 py-4"><DateBadge date={order.createdAt} /></td>
                           <td className="px-8 py-4">{renderTableActions(actions, displayLabel, order)}</td>
                         </tr>
