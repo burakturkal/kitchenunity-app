@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MOCK_SALES_TAX, MOCK_EXPENSE_TYPES } from '../services/mockData';
 import { ExpenseType } from '../types';
 import {
@@ -31,6 +31,7 @@ interface SettingsProps {
   stores?: CabinetStore[];
   currentUserRole?: UserRole;
   variant?: 'full' | 'platform' | 'store';
+  onStoreUpdated?: (storeId: string, updates: Partial<CabinetStore>) => void;
 }
 
 interface UserRow {
@@ -71,7 +72,7 @@ const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInputEleme
   />
 );
 
-const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, activeStore, stores = [], currentUserRole, variant = 'full' }) => {
+const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, activeStore, stores = [], currentUserRole, variant = 'full', onStoreUpdated }) => {
   const showPlatform = variant === 'full' || variant === 'platform';
   const showStore    = variant === 'full' || variant === 'store';
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -99,6 +100,10 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
   const [contactWebsite, setContactWebsite] = useState(activeStore?.website || '');
   const [contactReplyTo, setContactReplyTo] = useState(activeStore?.replyToEmail || '');
   const [isSavingStore, setIsSavingStore] = useState(false);
+  const [logoUrl, setLogoUrl] = useState(
+    activeStore?.logoUrl || localStorage.getItem(`ku_store_logo_${activeStore?.id ?? storeId}`) || ''
+  );
+  const logoFileRef = useRef<HTMLInputElement>(null);
   const [storeName, setStoreName] = useState(activeStore?.name || '');
   const [storeDomain, setStoreDomain] = useState(activeStore?.domain || '');
   const [fbTargetStoreId, setFbTargetStoreId] = useState(activeStore?.id || storeId || '');
@@ -129,8 +134,9 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
       setFbTargetStoreId(activeStore.id);
       setFbPageId(activeStore.facebookPageId || '');
       setFbPageToken(activeStore.facebookPageToken || '');
+      setLogoUrl(activeStore.logoUrl || localStorage.getItem(`ku_store_logo_${activeStore.id}`) || '');
     }
-  }, [activeStore?.id, activeStore?.name, activeStore?.domain, activeStore?.facebookPageId, activeStore?.facebookPageToken, activeStore?.contactEmail, activeStore?.contactPhone, activeStore?.website, activeStore?.replyToEmail]);
+  }, [activeStore?.id, activeStore?.name, activeStore?.domain, activeStore?.facebookPageId, activeStore?.facebookPageToken, activeStore?.contactEmail, activeStore?.contactPhone, activeStore?.website, activeStore?.replyToEmail, activeStore?.logoUrl]);
 
   useEffect(() => {
     setInviteStoreId(storeId || '');
@@ -187,19 +193,80 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
     }
   };
 
+  const [isSavingLogo, setIsSavingLogo] = useState(false);
+  const pendingFileRef = useRef<File | null>(null);
+
+  const handleSaveLogo = async () => {
+    if (!activeStore?.id) { alert('No active store selected.'); return; }
+    setIsSavingLogo(true);
+    try {
+      let finalUrl = logoUrl;
+
+      const file = pendingFileRef.current;
+      if (file) {
+        const ext = file.name.split('.').pop() || 'png';
+        const path = `${activeStore.id}/logo.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('store-logos')
+          .upload(path, file, { upsert: true, contentType: file.type });
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from('store-logos').getPublicUrl(path);
+        finalUrl = data.publicUrl;
+        pendingFileRef.current = null;
+      }
+
+      await db.stores.update(activeStore.id, { logoUrl: finalUrl || null });
+      const key = `ku_store_logo_${activeStore.id}`;
+      if (finalUrl) { localStorage.setItem(key, finalUrl); } else { localStorage.removeItem(key); }
+      setLogoUrl(finalUrl);
+      onStoreUpdated?.(activeStore.id, { logoUrl: finalUrl || undefined });
+      alert('Logo saved.');
+    } catch (err: any) {
+      console.error('Logo save failed:', err);
+      alert(err?.message || 'Save failed. Make sure the store-logos storage bucket exists and logo_url column is added to the stores table.');
+    } finally {
+      setIsSavingLogo(false);
+    }
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { alert('File too large. Max 2MB.'); return; }
+    pendingFileRef.current = file;
+    const reader = new FileReader();
+    reader.onload = () => setLogoUrl(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
   const handleSaveStoreIdentity = async () => {
     if (!activeStore?.id) {
       alert('No active store selected.');
       return;
     }
-    if (!storeName || !storeDomain) {
-      alert('Please provide a store name and store key.');
-      return;
-    }
     setIsSavingStore(true);
     try {
-      await db.stores.update(activeStore.id, { name: storeName, domain: storeDomain, timezone: digestTimezone });
-      alert('Store identity saved.');
+      let finalLogoUrl = logoUrl;
+
+      const file = pendingFileRef.current;
+      if (file) {
+        const ext = file.name.split('.').pop() || 'png';
+        const path = `${activeStore.id}/logo.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('store-logos')
+          .upload(path, file, { upsert: true, contentType: file.type });
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from('store-logos').getPublicUrl(path);
+        finalLogoUrl = data.publicUrl;
+        pendingFileRef.current = null;
+        setLogoUrl(finalLogoUrl);
+        const key = `ku_store_logo_${activeStore.id}`;
+        localStorage.setItem(key, finalLogoUrl);
+      }
+
+      await db.stores.update(activeStore.id, { name: storeName, timezone: digestTimezone, logoUrl: finalLogoUrl || null });
+      onStoreUpdated?.(activeStore.id, { logoUrl: finalLogoUrl || undefined });
+      alert('Store settings saved.');
     } catch (err) {
       console.error('Store identity save failed:', err);
       alert('Store update failed.');
@@ -616,10 +683,6 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
               <Input value={storeName} onChange={(e) => setStoreName(e.target.value)} placeholder="Store Name" />
             </div>
             <div>
-              <Label>Store Key (URL Slug)</Label>
-              <Input value={storeDomain} onChange={(e) => setStoreDomain(e.target.value)} placeholder="store-key" />
-            </div>
-            <div>
               <Label>Business Type</Label>
               <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 appearance-none">
                 <option>Cabinet Store</option>
@@ -646,26 +709,27 @@ const Settings: React.FC<SettingsProps> = ({ storeId = 'store-1', onLeadAdded, a
             <div>
               <Label>Store Logo</Label>
               <div className="flex items-center gap-6 p-6 border-2 border-dashed border-slate-100 rounded-3xl">
-                <div className="w-20 h-20 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-200 text-slate-300">
-                  <ImageIcon size={32} />
+                <div className="w-20 h-20 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-200 overflow-hidden flex-shrink-0">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="Store logo" className="w-full h-full object-contain p-1" />
+                  ) : (
+                    <ImageIcon size={32} className="text-slate-300" />
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <button className="px-6 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all">Upload Logo</button>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">JPG, PNG or SVG. Max 2MB.</p>
+                  <input ref={logoFileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => logoFileRef.current?.click()} className="px-6 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all">
+                      {logoUrl ? 'Change' : 'Upload Logo'}
+                    </button>
+                    {logoUrl && (
+                      <button type="button" onClick={() => { setLogoUrl(''); pendingFileRef.current = null; if (logoFileRef.current) logoFileRef.current.value = ''; }} className="px-3 py-2 text-rose-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-50 transition-all">
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">JPG, PNG or SVG. Saved with Store Identity below.</p>
                 </div>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-6">
-            <div>
-              <Label>Business Address</Label>
-              <div className="space-y-4">
-                <Input placeholder="Street Address" defaultValue="123 Granite Way" />
-                <div className="grid grid-cols-2 gap-4">
-                  <Input placeholder="City" defaultValue="Grand Rapids" />
-                  <Input placeholder="State" defaultValue="MI" />
-                </div>
-                <Input placeholder="ZIP Code" defaultValue="49501" />
               </div>
             </div>
           </div>
