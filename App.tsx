@@ -1647,7 +1647,7 @@ const App: React.FC = () => {
        {actions.includes('view') && <button onClick={() => openModal(`View ${type}`, item)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="View"><Eye size={18} /></button>}
        {actions.includes('email') && <button onClick={() => handleSendInvoiceEmail(item, type.toLowerCase())} disabled={emailSending} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition-colors disabled:opacity-50" title="Email Invoice"><Mail size={18} /></button>}
        {actions.includes('edit') && <button onClick={() => openModal(type, item)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors" title="Edit"><Edit2 size={18} /></button>}
-       {actions.includes('delete') && (currentUser.role === UserRole.ADMIN || type.toLowerCase().includes('inventory') || type.toLowerCase().includes('order') || type.toLowerCase().includes('quote') || type.toLowerCase().includes('invoice')) && <button onClick={() => handleDelete(type, item.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors" title="Delete"><Trash2 size={18} /></button>}
+       {actions.includes('delete') && (currentUser.role === UserRole.ADMIN || type.toLowerCase().includes('inventory') || type.toLowerCase().includes('order') || type.toLowerCase().includes('quote') || type.toLowerCase().includes('invoice') || type.toLowerCase().includes('customer')) && <button onClick={() => handleDelete(type, item.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors" title="Delete"><Trash2 size={18} /></button>}
     </div>
   );
 

@@ -287,6 +287,17 @@ const Layout: React.FC<LayoutProps> = ({
           </div>
 
           <div className="flex items-center gap-4">
+            {newLeads.length > 0 && (
+              <button
+                onClick={() => setActiveTab('leads')}
+                className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-100 transition-all"
+              >
+                <span className="w-5 h-5 bg-emerald-500 text-white rounded-full flex items-center justify-center text-[10px] font-black">
+                  {newLeads.length > 99 ? '99+' : newLeads.length}
+                </span>
+                New Leads
+              </button>
+            )}
             <button
               onClick={() => setDesignModalOpen(true)}
               className="flex items-center gap-2 px-5 py-2.5 bg-rose-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-rose-500/30 hover:bg-rose-600 hover:-translate-y-0.5 transition-all"
