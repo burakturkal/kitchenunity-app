@@ -296,7 +296,7 @@ const Layout: React.FC<LayoutProps> = ({
                 onClick={() => setActiveTab('leads')}
                 className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-100 transition-all"
               >
-                <span className="min-w-[20px] h-5 px-1 bg-emerald-500 text-white rounded-full flex items-center justify-center text-[10px] font-black">
+                <span className="px-1.5 py-0.5 bg-emerald-500 text-white rounded-full text-[10px] font-black leading-none">
                   {newLeadsCount}
                 </span>
                 New Leads

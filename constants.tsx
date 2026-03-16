@@ -16,6 +16,7 @@ import {
   Store,
   Sparkles,
   MessageSquare,
+  Phone,
   CheckCircle2,
   Lock,
   Clock,
@@ -59,6 +60,7 @@ export const NAV_ITEMS: NavItem[] = [
 export const STATUS_COLORS: Record<string, string> = {
   'New': 'bg-blue-100 text-blue-700 border-blue-200',
   'Contacted': 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  'No Answer': 'bg-orange-100 text-orange-700 border-orange-200',
   'Qualified': 'bg-purple-100 text-purple-700 border-purple-200',
   'Closed': 'bg-emerald-100 text-emerald-700 border-emerald-200',
   'Archived': 'bg-slate-100 text-slate-700 border-slate-200',
@@ -70,6 +72,7 @@ export const STATUS_COLORS: Record<string, string> = {
 export const STATUS_ICONS: Record<string, React.ReactNode> = {
   'New': <Sparkles size={12} />,
   'Contacted': <MessageSquare size={12} />,
+  'No Answer': <Phone size={12} />,
   'Qualified': <CheckCircle2 size={12} />,
   'Closed': <Lock size={12} />,
   'Archived': <Package size={12} />,

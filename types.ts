@@ -22,6 +22,7 @@ export enum UserRole {
 export enum LeadStatus {
   NEW = 'New',
   CONTACTED = 'Contacted',
+  NO_ANSWER = 'No Answer',
   QUALIFIED = 'Qualified',
   CLOSED = 'Closed',
   ARCHIVED = 'Archived'
@@ -107,6 +108,7 @@ export interface CabinetStore {
   dailyDigestTime?: string;
   dailyDigestStatuses?: string[];
   timezone?: string;
+  logoUrl?: string;
 }
 
 export interface Lead {
