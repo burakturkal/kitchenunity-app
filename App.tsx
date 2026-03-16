@@ -384,12 +384,13 @@ const App: React.FC = () => {
     return <ResetPassword />;
   }
 
-  const { 
-    effectiveStoreId, 
-    currentUser, 
-    handleRoleSwitch, 
-    selectedAdminStoreId, 
-    setSelectedAdminStoreId, 
+  const {
+    effectiveStoreId,
+    activeStore,
+    currentUser,
+    handleRoleSwitch,
+    selectedAdminStoreId,
+    setSelectedAdminStoreId,
     stores,
     setStores
   } = useTenant();
@@ -493,10 +494,14 @@ const App: React.FC = () => {
     const defaultSubtotal = calculateSubtotal(defaultLineItems);
     const defaultTax = calculateTax(defaultSubtotal, globalSalesTax);
 
-    setSelectedItem(item ? JSON.parse(JSON.stringify(item)) : {
-      status: type.includes('Lead') ? LeadStatus.NEW : 
-        type.includes('Event') ? PlannerEventStatus.SCHEDULED : 
-        type.includes('Claim') ? ClaimStatus.OPEN : 
+    setSelectedItem(item ? {
+      ...JSON.parse(JSON.stringify(item)),
+      subtotal: defaultSubtotal,
+      tax: calculateTax(defaultSubtotal, item.taxRate ?? globalSalesTax),
+    } : {
+      status: type.includes('Lead') ? LeadStatus.NEW :
+        type.includes('Event') ? PlannerEventStatus.SCHEDULED :
+        type.includes('Claim') ? ClaimStatus.OPEN :
         type.includes('Quote') ? 'Quote' :
         type.includes('Invoice') ? 'Invoiced' :
         type.includes('Store') ? 'active' : 'Processing',
@@ -510,7 +515,7 @@ const App: React.FC = () => {
       lineItems: defaultLineItems,
       amount: 0,
       subtotal: defaultSubtotal,
-      tax: defaultTax, // Calculate tax dynamically based on subtotal and global sales tax
+      tax: defaultTax,
       createdAt: new Date().toISOString()
     });
     setNewLineItemProduct('');
@@ -1863,6 +1868,7 @@ const App: React.FC = () => {
             currentUserRole={currentUser.role}
             onLeadAdded={(newLead) => setLeads(prev => [newLead, ...prev])}
             variant={isGlobalView ? 'platform' : 'full'}
+            onStoreUpdated={(sid, updates) => setStores(prev => prev.map(s => s.id === sid ? { ...s, ...updates } : s))}
           />
         );
       }
@@ -1880,6 +1886,7 @@ const App: React.FC = () => {
       setSelectedAdminStoreId={setSelectedAdminStoreId}
       stores={stores}
       leads={leads}
+      activeStore={activeStore}
     >
       {storeSettingsTarget && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-start justify-center p-6 overflow-y-auto animate-in fade-in duration-200" onClick={(e) => { if (e.target === e.currentTarget) setStoreSettingsTarget(null); }}>
@@ -1898,6 +1905,7 @@ const App: React.FC = () => {
                 stores={stores}
                 currentUserRole={currentUser.role}
                 variant="store"
+                onStoreUpdated={(sid, updates) => setStores(prev => prev.map(s => s.id === sid ? { ...s, ...updates } : s))}
               />
             </div>
           </div>
