@@ -2082,7 +2082,7 @@ const App: React.FC = () => {
               {(modalType.toLowerCase().includes('order') || modalType.toLowerCase().includes('quote')) && (
                 <button onClick={() => handleSendInvoiceEmail()} disabled={emailSending} className="px-8 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:scale-100"><Mail size={14} /> {emailSending ? 'Sending...' : 'Email Invoice'}</button>
               )}
-              {(!modalType.startsWith('View') || modalType.toLowerCase().includes('order') || modalType.toLowerCase().includes('quote')) && <button onClick={handleSave} className="px-10 py-3 bg-blue-600 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"><Save size={14} /> Commit Changes</button>}
+              {(!modalType.startsWith('View') || modalType.toLowerCase().includes('order') || modalType.toLowerCase().includes('quote')) && <button onClick={handleSave} className="px-10 py-3 bg-blue-600 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"><Save size={14} /> Save</button>}
             </div>
           </div>
         </div>
