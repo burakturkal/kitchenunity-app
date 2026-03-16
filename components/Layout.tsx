@@ -62,6 +62,10 @@ const Layout: React.FC<LayoutProps> = ({
     return ts ? new Date(ts) : new Date(0);
   }, []);
 
+  const newLeadsCount = useMemo(() => {
+    return leads.filter(l => new Date(l.createdAt) > lastSeen).length;
+  }, [leads, lastSeen]);
+
   const newLeads = useMemo(() => {
     return leads
       .filter(l => new Date(l.createdAt) > lastSeen)
@@ -287,13 +291,13 @@ const Layout: React.FC<LayoutProps> = ({
           </div>
 
           <div className="flex items-center gap-4">
-            {newLeads.length > 0 && (
+            {newLeadsCount > 0 && (
               <button
                 onClick={() => setActiveTab('leads')}
                 className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-100 transition-all"
               >
-                <span className="w-5 h-5 bg-emerald-500 text-white rounded-full flex items-center justify-center text-[10px] font-black">
-                  {newLeads.length > 99 ? '99+' : newLeads.length}
+                <span className="min-w-[20px] h-5 px-1 bg-emerald-500 text-white rounded-full flex items-center justify-center text-[10px] font-black">
+                  {newLeadsCount}
                 </span>
                 New Leads
               </button>
@@ -315,7 +319,7 @@ const Layout: React.FC<LayoutProps> = ({
                 <Bell size={18} />
                 {newLeads.length > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[8px] font-black rounded-full flex items-center justify-center">
-                    {newLeads.length > 9 ? '9+' : newLeads.length}
+                    {newLeadsCount > 99 ? '99+' : newLeadsCount}
                   </span>
                 )}
               </button>
