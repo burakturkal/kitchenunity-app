@@ -44,7 +44,9 @@ const Layout: React.FC<LayoutProps> = ({
   leads = [],
   activeStore
 }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+  );
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({ sales: false });
   const [designModalOpen, setDesignModalOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -123,6 +125,11 @@ const Layout: React.FC<LayoutProps> = ({
     setExpandedMenus(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const handleNavClick = (tab: string) => {
+    setActiveTab(tab);
+    if (window.innerWidth < 1024) setIsSidebarOpen(false);
+  };
+
   const handleLogout = async () => {
     try {
       // Supabase signOut triggers onAuthStateChange in StoreProvider
@@ -153,7 +160,12 @@ const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className="flex h-screen bg-white overflow-hidden font-sans">
-      <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} transition-all duration-500 bg-white border-r border-slate-200 flex flex-col z-30 shadow-sm relative`}>
+      {/* Mobile backdrop */}
+      <div
+        className={`fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onClick={() => setIsSidebarOpen(false)}
+      />
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 lg:relative lg:inset-auto lg:z-30 transition-all duration-500 bg-white border-r border-slate-200 flex flex-col shadow-sm ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0 lg:w-20'}`}>
         {(() => {
           const logoSrc = activeStore?.logoUrl ||
             (activeStore?.id ? localStorage.getItem(`ku_store_logo_${activeStore.id}`) : null);
@@ -212,16 +224,16 @@ const Layout: React.FC<LayoutProps> = ({
                     if (item.subItems) {
                       toggleSubMenu(item.id);
                     } else {
-                      setActiveTab(item.id);
+                      handleNavClick(item.id);
                     }
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group border ${
+                  className={`w-full flex items-center px-3 py-2.5 rounded-xl transition-all group border ${isSidebarOpen ? 'gap-3' : 'justify-center'} ${
                     isSelected && !item.subItems
-                      ? 'bg-blue-50 text-blue-700 border-blue-100 shadow-sm' 
+                      ? 'bg-blue-50 text-blue-700 border-blue-100 shadow-sm'
                       : 'text-slate-600 border-transparent hover:bg-slate-100 hover:text-slate-900'
                   }`}
                 >
-                  <item.icon size={18} className={isSelected && !item.subItems ? 'text-blue-600' : 'group-hover:text-blue-600'} />
+                  <item.icon size={isSidebarOpen ? 18 : 20} className={isSelected && !item.subItems ? 'text-blue-600' : 'group-hover:text-blue-600'} />
                   {isSidebarOpen && <span className="font-semibold text-sm tracking-tight">{item.label}</span>}
                   {isSidebarOpen && item.subItems && (
                     <div className="ml-auto">
@@ -235,7 +247,7 @@ const Layout: React.FC<LayoutProps> = ({
                     {item.subItems.map(sub => (
                       <button
                         key={sub.id}
-                        onClick={() => setActiveTab(sub.id)}
+                        onClick={() => handleNavClick(sub.id)}
                         className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
                           activeTab === sub.id ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                         }`}
@@ -284,7 +296,7 @@ const Layout: React.FC<LayoutProps> = ({
             <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
             {isSidebarOpen && <span className="font-bold text-sm tracking-tight">Logout</span>}
           </button>
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="w-full flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:text-slate-900 transition-colors">
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="hidden lg:flex w-full items-center gap-3 px-3 py-2.5 text-slate-500 hover:text-slate-900 transition-colors">
             {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
             {isSidebarOpen && <span className="text-xs font-bold uppercase tracking-widest">Collapse View</span>}
           </button>
@@ -292,10 +304,17 @@ const Layout: React.FC<LayoutProps> = ({
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 bg-white">
-        <header className="h-[72px] bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-20">
-          <div className="flex items-center gap-6">
-            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter">
-               {currentUser.role === UserRole.ADMIN && activeTab === 'dashboard' ? 'Platform Management' : activeTab.replace('-', ' ')}
+        <header className="h-[72px] bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-20">
+          <div className="flex items-center gap-3 sm:gap-6">
+            <button
+              className="lg:hidden p-2 -ml-1 text-slate-600 hover:text-slate-900 transition-colors"
+              onClick={() => setIsSidebarOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu size={22} />
+            </button>
+            <h2 className="text-base sm:text-xl font-black text-slate-800 uppercase tracking-tighter">
+               Control Center
             </h2>
 
             {currentUser.role === UserRole.ADMIN && setSelectedAdminStoreId && (
@@ -316,31 +335,31 @@ const Layout: React.FC<LayoutProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {newLeadsCount > 0 && (
               <button
                 onClick={() => setActiveTab('leads')}
-                className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-100 transition-all"
+                className="flex items-center gap-2 px-2.5 py-2 sm:px-4 sm:py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-100 transition-all"
               >
                 <span className="px-1.5 py-0.5 bg-emerald-500 text-white rounded-full text-[10px] font-black leading-none">
                   {newLeadsCount}
                 </span>
-                New Leads
+                <span className="hidden sm:inline">New Leads</span>
               </button>
             )}
             <button
               onClick={() => setDesignModalOpen(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-rose-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-rose-500/30 hover:bg-rose-600 hover:-translate-y-0.5 transition-all"
+              className="flex items-center gap-2 px-3 py-2 sm:px-5 sm:py-2.5 bg-rose-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-rose-500/30 hover:bg-rose-600 hover:-translate-y-0.5 transition-all"
             >
               <Sparkles size={14} />
-              Request a Design
+              <span className="hidden sm:inline">Request a Design</span>
             </button>
 
             {/* Notification Bell */}
             <div className="relative" ref={notifRef}>
               <button
                 onClick={() => setNotifOpen(v => !v)}
-                className="relative w-10 h-10 flex items-center justify-center bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:border-blue-500 hover:text-blue-600 transition-all"
+                className="relative w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:border-blue-500 hover:text-blue-600 transition-all"
               >
                 <Bell size={18} />
                 {newLeads.length > 0 && (
@@ -391,8 +410,9 @@ const Layout: React.FC<LayoutProps> = ({
               <span className="text-sm font-black text-slate-900 tracking-tight">{currentUser.name}</span>
               <span className="text-[10px] text-blue-600 font-black uppercase tracking-widest">Access: {currentUser.role}</span>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:border-blue-500 transition-all cursor-pointer">
-              <UserCircle size={28} />
+            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:border-blue-500 transition-all cursor-pointer">
+              <UserCircle size={22} className="sm:hidden" />
+              <UserCircle size={28} className="hidden sm:block" />
             </div>
           </div>
         </header>

@@ -398,6 +398,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [storeSettingsTarget, setStoreSettingsTarget] = useState<CabinetStore | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [ordersCustomerPreview, setOrdersCustomerPreview] = useState<string | null>(null);
   const [ordersKanbanView, setOrdersKanbanView] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<string>('');
@@ -1321,7 +1322,7 @@ const App: React.FC = () => {
           </FormSection>
           <FormSection title="Products" icon={ShoppingCart}>
             <div className="col-span-2 space-y-4">
-              <div className="flex gap-4 items-end bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <div className="flex flex-wrap gap-3 items-end bg-slate-50 p-4 rounded-2xl border border-slate-100">
                 <div className="flex-1 space-y-1">
                   <SearchableSelect 
                     label="Product"
@@ -1642,12 +1643,12 @@ const App: React.FC = () => {
 
   const renderTableActions = (actions: string[], type: string, item: any) => (
     <div className="flex items-center gap-1 justify-end">
-       {actions.includes('convert') && <button onClick={() => handleConvertQuote(item)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Convert to Order"><ArrowRightCircle size={18} /></button>}
-       {actions.includes('revert') && <button onClick={() => handleRevertToQuote(item)} className="p-1.5 text-slate-500 hover:bg-slate-100 rounded transition-colors" title="Revert to Quote"><ArrowRightCircle size={18} className="rotate-180" /></button>}
-       {actions.includes('view') && <button onClick={() => openModal(`View ${type}`, item)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="View"><Eye size={18} /></button>}
-       {actions.includes('email') && <button onClick={() => handleSendInvoiceEmail(item, type.toLowerCase())} disabled={emailSending} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition-colors disabled:opacity-50" title="Email Invoice"><Mail size={18} /></button>}
-       {actions.includes('edit') && <button onClick={() => openModal(type, item)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors" title="Edit"><Edit2 size={18} /></button>}
-       {actions.includes('delete') && (currentUser.role === UserRole.ADMIN || type.toLowerCase().includes('inventory') || type.toLowerCase().includes('order') || type.toLowerCase().includes('quote') || type.toLowerCase().includes('invoice') || type.toLowerCase().includes('customer')) && <button onClick={() => handleDelete(type, item.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors" title="Delete"><Trash2 size={18} /></button>}
+       {actions.includes('convert') && <button onClick={() => handleConvertQuote(item)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors" title="Convert to Order"><ArrowRightCircle size={18} /></button>}
+       {actions.includes('revert') && <button onClick={() => handleRevertToQuote(item)} className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors" title="Revert to Quote"><ArrowRightCircle size={18} className="rotate-180" /></button>}
+       {actions.includes('view') && <button onClick={() => openModal(`View ${type}`, item)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors" title="View"><Eye size={18} /></button>}
+       {actions.includes('email') && <button onClick={() => handleSendInvoiceEmail(item, type.toLowerCase())} disabled={emailSending} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors disabled:opacity-50" title="Email Invoice"><Mail size={18} /></button>}
+       {actions.includes('edit') && <button onClick={() => openModal(type, item)} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors" title="Edit"><Edit2 size={18} /></button>}
+       {actions.includes('delete') && (currentUser.role === UserRole.ADMIN || type.toLowerCase().includes('inventory') || type.toLowerCase().includes('order') || type.toLowerCase().includes('quote') || type.toLowerCase().includes('invoice') || type.toLowerCase().includes('customer')) && <button onClick={() => handleDelete(type, item.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors" title="Delete"><Trash2 size={18} /></button>}
     </div>
   );
 
@@ -1774,12 +1775,49 @@ const App: React.FC = () => {
         }
         return (
           <div className="space-y-6">
-            <div className="flex justify-between items-center"><h3 className="text-xl font-black text-slate-900 tracking-tighter">Customers</h3><button onClick={() => openModal('Customer')} className="px-5 py-2 bg-slate-900 hover:bg-blue-600 text-white rounded-lg text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2"><Plus size={13} /> New</button></div>
+            <div className="flex justify-between items-center"><h3 className="text-4xl font-black text-slate-900 tracking-tighter">Customers</h3><button onClick={() => openModal('Customer')} className="px-5 py-2 bg-slate-900 hover:bg-blue-600 text-white rounded-lg text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2"><Plus size={13} /> New</button></div>
             <FilterBar query={tableSearch} setQuery={setTableSearch} filter={tableFilter} setFilter={setTableFilter} options={[{ value: 'all', label: 'All Accounts' }]} />
-            <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
+
+            {/* Mobile cards */}
+            <div className="md:hidden space-y-3">
+              {filteredCustomersTable.length === 0 ? (
+                <div className="py-12 text-center text-xs font-black uppercase tracking-[0.2em] text-slate-400">No customers found.</div>
+              ) : filteredCustomersTable.map(c => {
+                const tenant = stores.find(s => s.id === c.storeId);
+                const custOrderCount = orders.filter(o => o.customerId === c.id).length;
+                return (
+                  <div key={c.id} onClick={() => setSelectedCustomerId(c.id)} className="bg-white rounded-3xl border border-slate-200 p-4 shadow-sm cursor-pointer hover:border-blue-300 transition-colors">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black flex-shrink-0">
+                          {c.firstName[0]}{c.lastName[0]}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-slate-800">{c.firstName} {c.lastName}</p>
+                          <p className="text-xs text-blue-600 font-bold truncate">{c.email}</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-2 py-1 rounded-lg flex-shrink-0">{custOrderCount} orders</span>
+                    </div>
+                    <div className="flex items-center justify-between" onClick={e => e.stopPropagation()}>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs text-slate-600 font-medium">{c.phone || '—'}</span>
+                        {selectedAdminStoreId === 'all' && currentUser.role === UserRole.ADMIN && (
+                          <span className="text-[10px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100 w-fit">{tenant?.name || 'Unknown'}</span>
+                        )}
+                      </div>
+                      <div className="flex gap-1">{renderTableActions(['view', 'edit', 'delete'], 'Customer', c)}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-left min-w-[900px]">
-                  <thead className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                  <thead className="bg-slate-50/80 text-slate-500 text-xs font-semibold tracking-normal border-b border-slate-100">
                     <tr>
                       <th className="px-8 py-4">Name</th>
                       <th className="px-8 py-4">Email</th>
@@ -1838,13 +1876,23 @@ const App: React.FC = () => {
         ));
 
         const showKanban = ordersKanbanView && activeTab === 'sales-orders';
+
         return (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xl font-black text-slate-900 tracking-tighter">{displayLabel}s</h3>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+              <div className="flex items-center justify-between sm:block">
+                <h3 className="text-4xl font-black text-slate-900 tracking-tighter">{displayLabel}s</h3>
+                {/* Kanban toggle — moves here on mobile */}
+                {activeTab === 'sales-orders' && (
+                  <div className="flex sm:hidden bg-slate-100 border border-slate-200 rounded-xl p-1 gap-1">
+                    <button onClick={() => setOrdersKanbanView(false)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!ordersKanbanView ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Table</button>
+                    <button onClick={() => setOrdersKanbanView(true)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${ordersKanbanView ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Kanban</button>
+                  </div>
+                )}
+              </div>
               <div className="flex items-center gap-3">
                 {activeTab === 'sales-orders' && (
-                  <div className="flex bg-slate-100 border border-slate-200 rounded-xl p-1 gap-1">
+                  <div className="hidden sm:flex bg-slate-100 border border-slate-200 rounded-xl p-1 gap-1">
                     <button onClick={() => setOrdersKanbanView(false)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!ordersKanbanView ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Table</button>
                     <button onClick={() => setOrdersKanbanView(true)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${ordersKanbanView ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Kanban</button>
                   </div>
@@ -1857,10 +1905,52 @@ const App: React.FC = () => {
             ) : (
             <>
             <FilterBar query={tableSearch} setQuery={setTableSearch} filter={tableFilter} setFilter={setTableFilter} options={[{ value: 'all', label: `All ${displayPlural}` }]} />
-            <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
+
+            {/* Mobile cards */}
+            <div className="md:hidden space-y-3">
+              {scopedOrders.length === 0 ? (
+                <div className="py-12 text-center text-xs font-black uppercase tracking-[0.2em] text-slate-400">No {displayPlural.toLowerCase()} found.</div>
+              ) : scopedOrders.map(order => {
+                const customer = customers.find(c => c.id === order.customerId);
+                const allowConvert = activeTab === 'sales-quotes';
+                const actions = allowConvert ? ['view', 'email', 'edit', 'delete', 'convert'] : ['view', 'email', 'edit', 'delete', 'revert'];
+                const orderStatuses = ['Processing', 'Invoiced', 'Shipped', 'Completed'];
+                return (
+                  <div key={order.id} className="bg-white rounded-3xl border border-slate-200 p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        {customer
+                          ? <button onClick={() => setOrdersCustomerPreview(customer.id)} className="text-sm font-bold text-blue-600 hover:underline text-left">{customer.firstName} {customer.lastName}</button>
+                          : <p className="text-sm font-bold text-slate-800">Direct Sale</p>
+                        }
+                        <p className="text-xs font-mono text-slate-400">#{order.id.slice(-8)}</p>
+                      </div>
+                      <span className="text-sm font-black text-blue-600 flex-shrink-0">${order.amount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <select
+                        value={order.status}
+                        onChange={async (e) => {
+                          const updated = { ...order, status: e.target.value };
+                          await db.orders.update(order.id, updated);
+                          setOrders((prev: Order[]) => prev.map(o => o.id === order.id ? updated : o));
+                        }}
+                        className="text-[10px] font-black uppercase px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {(allowConvert ? ['Quote'] : orderStatuses).map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <div className="flex gap-1">{renderTableActions(actions, displayLabel, order)}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-left min-w-[900px]">
-                  <thead className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                  <thead className="bg-slate-50/80 text-slate-500 text-xs font-semibold tracking-normal border-b border-slate-100">
                     <tr><th className="px-8 py-4">Transaction ID</th><th className="px-8 py-4">Client</th><th className="px-8 py-4">Revenue</th><th className="px-8 py-4">Workflow</th><th className="px-8 py-4 text-right">Action</th></tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1872,7 +1962,12 @@ const App: React.FC = () => {
                       return (
                         <tr key={order.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-8 py-4 text-xs font-mono text-slate-400">{order.id.slice(-8)}</td>
-                          <td className="px-8 py-4 text-sm font-bold text-slate-800">{customer ? `${customer.firstName} ${customer.lastName}` : 'Direct Sale'}</td>
+                          <td className="px-8 py-4">
+                            {customer
+                              ? <button onClick={() => setOrdersCustomerPreview(customer.id)} className="text-sm font-bold text-blue-600 hover:underline">{customer.firstName} {customer.lastName}</button>
+                              : <span className="text-sm font-bold text-slate-800">Direct Sale</span>
+                            }
+                          </td>
                           <td className="px-8 py-4 text-sm font-black text-blue-600">${order.amount.toFixed(2)}</td>
                           <td className="px-8 py-4">
                             <select
@@ -1901,6 +1996,37 @@ const App: React.FC = () => {
             </div>
             </>
             )}
+
+          {ordersCustomerPreview && (() => {
+            const profileCustomer = customers.find(c => c.id === ordersCustomerPreview);
+            if (!profileCustomer) return null;
+            return (
+              <div
+                key="customer-modal"
+                className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200"
+                onClick={() => setOrdersCustomerPreview(null)}
+              >
+                <div
+                  className="bg-white w-full max-w-4xl rounded-[32px] shadow-2xl overflow-y-auto overflow-x-hidden max-h-[90vh] border border-slate-200"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <div className="p-6 sm:p-8">
+                    <CustomerProfile
+                      customer={profileCustomer}
+                      orders={orders}
+                      events={events}
+                      claims={claims}
+                      onBack={() => setOrdersCustomerPreview(null)}
+                      onEdit={() => { setOrdersCustomerPreview(null); openModal('Customer', profileCustomer); }}
+                      onNewOrder={() => openModal('Order')}
+                      onNewEvent={() => openModal('Event')}
+                      onNewClaim={() => openModal('Claim')}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
           </div>
         );
       }
@@ -2170,9 +2296,9 @@ const App: React.FC = () => {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-4xl rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] border border-slate-200">
-            <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-4xl rounded-t-3xl sm:rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] border border-slate-200">
+            <div className="px-5 py-5 sm:px-10 sm:py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-slate-900 text-blue-400 rounded-2xl flex items-center justify-center shadow-lg"><FileText size={24} /></div>
                   <div>
@@ -2182,8 +2308,8 @@ const App: React.FC = () => {
               </div>
               <button onClick={closeModal} className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-slate-600 hover:scale-110 transition-all"><X size={20} /></button>
             </div>
-            <div className="p-10 flex-1 overflow-y-auto custom-scrollbar">{renderModalContent()}</div>
-            <div className="px-10 py-8 bg-slate-50 border-t border-slate-100 flex justify-end gap-4">
+            <div className="p-4 sm:p-10 flex-1 overflow-y-auto custom-scrollbar">{renderModalContent()}</div>
+            <div className="px-4 py-4 sm:px-10 sm:py-8 bg-slate-50 border-t border-slate-100 flex flex-wrap justify-end gap-3">
               <button onClick={closeModal} className="px-8 py-3 text-xs font-black text-slate-500 uppercase tracking-widest hover:bg-slate-100 rounded-xl transition-colors">Discard</button>
               {(modalType.toLowerCase().includes('order') || modalType.toLowerCase().includes('quote')) && (
                 <button onClick={() => handleSendInvoiceEmail()} disabled={emailSending} className="px-8 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:scale-100"><Mail size={14} /> {emailSending ? 'Sending...' : 'Email Invoice'}</button>

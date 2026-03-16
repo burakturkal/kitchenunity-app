@@ -110,7 +110,7 @@ const CustomerProfile: React.FC<CustomerProfileProps> = ({
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 border border-slate-200 rounded-2xl p-1 w-fit">
+      <div className="flex flex-wrap gap-1 bg-slate-100 border border-slate-200 rounded-2xl p-1 w-fit">
         {TABS.map(t => (
           <button
             key={t}
@@ -129,7 +129,6 @@ const CustomerProfile: React.FC<CustomerProfileProps> = ({
           </button>
         ))}
       </div>
-
       {/* Tab Content */}
       {tab === 'Overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

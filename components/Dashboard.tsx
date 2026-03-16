@@ -106,7 +106,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, orders, claims, customers 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Dynamic Hero Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         <div className="relative overflow-hidden group bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-[32px] text-white shadow-xl shadow-blue-500/20 transition-all hover:-translate-y-1">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform">
              <ShoppingBag size={120} />
@@ -150,7 +150,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, orders, claims, customers 
       {/* Lead Conversion Origins — Full Width */}
       <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
         {/* Header */}
-        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 flex items-center gap-2">
               <Filter size={15} className="text-blue-500" />
@@ -158,7 +158,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, orders, claims, customers 
             </h4>
             <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">Source performance — volume, activity &amp; conversion</p>
           </div>
-          <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <div className="flex items-center gap-4 sm:gap-6 text-[10px] font-black uppercase tracking-widest text-slate-400">
             <span>{leads.length} Total Leads</span>
             <span className="text-blue-500">{sourceBreakdown.length} Sources</span>
           </div>
@@ -183,7 +183,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, orders, claims, customers 
 
           {/* Breakdown Table */}
           <div className="lg:col-span-3 overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[600px]">
               <thead>
                 <tr className="border-b border-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-400">
                   <th className="px-6 py-4">Source</th>
@@ -296,7 +296,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leads, orders, claims, customers 
 
       {/* Recent Activity Ledger */}
       <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/40">
+        <div className="px-5 py-5 sm:px-10 sm:py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/40">
           <div>
             <h3 className="text-xl font-semibold text-slate-900 tracking-tight leading-none">Global Event Ledger</h3>
             <p className="text-xs text-slate-500 font-medium mt-1">Real-time synchronization active</p>

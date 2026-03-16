@@ -265,8 +265,71 @@ const LeadList: React.FC<LeadListProps> = ({ leads, role, activeStore, onUpdateS
         </div>
       )}
 
-      <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm flex flex-col">
-        <div className="flex-1 overflow-auto custom-scrollbar">
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-3">
+        {filteredLeads.length === 0 ? (
+          <div className="py-16 text-center flex flex-col items-center gap-4">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
+              <Search size={32} strokeWidth={1} />
+            </div>
+            <p className="text-sm font-semibold text-slate-500">No leads match your search criteria</p>
+          </div>
+        ) : filteredLeads.map(lead => {
+          const isSelected = selectedIds.has(lead.id);
+          return (
+            <div key={lead.id} className={`bg-white rounded-3xl border p-4 shadow-sm transition-colors ${isSelected ? 'border-blue-300 bg-blue-50/40' : 'border-slate-200'}`}>
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2.5">
+                  <button onClick={() => toggleSelect(lead.id)} className="text-slate-400 hover:text-blue-600 transition-colors flex-shrink-0">
+                    {isSelected ? <CheckSquare size={16} className="text-blue-600" /> : <Square size={16} />}
+                  </button>
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">{lead.firstName} {lead.lastName}</p>
+                    <p className="text-xs text-slate-400 font-medium">Via {lead.source}</p>
+                  </div>
+                </div>
+                <select
+                  value={lead.status}
+                  onChange={(e) => onUpdateStatus(lead.id, e.target.value as LeadStatus)}
+                  onClick={(e) => e.stopPropagation()}
+                  className={`px-3 py-1 rounded-full text-[11px] font-semibold border-0 cursor-pointer focus:outline-none flex-shrink-0 ${
+                    lead.status === LeadStatus.QUALIFIED ? 'bg-emerald-100 text-emerald-600' :
+                    lead.status === LeadStatus.NEW ? 'bg-blue-100 text-blue-600' :
+                    lead.status === LeadStatus.CLOSED ? 'bg-rose-100 text-rose-600' :
+                    lead.status === LeadStatus.ARCHIVED ? 'bg-amber-100 text-amber-600' :
+                    'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {Object.values(LeadStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1 mb-3 pl-7">
+                <div className="flex items-center gap-1.5 text-slate-700 text-xs font-semibold">
+                  <Phone size={11} /> {lead.phone}
+                </div>
+                <div className="flex items-center gap-1.5 text-blue-500 text-[11px] font-mono">
+                  <Mail size={11} /> {lead.email}
+                </div>
+              </div>
+              <div className="flex items-center justify-between pl-7">
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {new Date(lead.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => onConvert(lead)} className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-colors" title="Convert"><ArrowRightCircle size={16} /></button>
+                  <button onClick={() => setSelectedLead(lead)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors" title="View"><Eye size={16} /></button>
+                  <button onClick={() => onEdit(lead)} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-colors" title="Edit"><Edit2 size={16} /></button>
+                  {role === UserRole.ADMIN && <button onClick={() => onDelete(lead.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors" title="Delete"><Trash2 size={16} /></button>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
+        <div className="overflow-auto custom-scrollbar">
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50/80 text-slate-500 text-xs font-semibold tracking-normal border-b border-slate-100">
               <tr>
@@ -369,9 +432,9 @@ const LeadList: React.FC<LeadListProps> = ({ leads, role, activeStore, onUpdateS
       </div>
 
       {selectedLead && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-end animate-in fade-in duration-300">
-          <div className="w-[500px] h-full bg-white shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300 border-l border-slate-200">
-            <div className="p-10 border-b border-slate-100 flex items-start justify-between bg-slate-50/50">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-end sm:items-center justify-center sm:justify-end animate-in fade-in duration-300">
+          <div className="w-full sm:w-[500px] max-h-[88vh] sm:max-h-none sm:h-full bg-white shadow-2xl overflow-y-auto animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 rounded-t-3xl sm:rounded-none border-t sm:border-t-0 sm:border-l border-slate-200">
+            <div className="p-6 sm:p-10 border-b border-slate-100 flex items-start justify-between bg-slate-50/50">
               <div>
                 <h3 className="text-3xl font-black text-slate-900 tracking-tighter leading-none mb-2">{selectedLead.firstName} {selectedLead.lastName}</h3>
                 <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">Record ID: {selectedLead.id}</p>
@@ -379,7 +442,7 @@ const LeadList: React.FC<LeadListProps> = ({ leads, role, activeStore, onUpdateS
               <button onClick={() => { setSelectedLead(null); }} className="w-12 h-12 flex items-center justify-center bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-slate-900 transition-all"><X size={24} /></button>
             </div>
 
-            <div className="p-10 space-y-10">
+            <div className="p-6 sm:p-10 space-y-8 sm:space-y-10">
               <div className="space-y-8">
                 <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3 flex items-center gap-2">
