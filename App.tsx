@@ -802,8 +802,25 @@ const App: React.FC = () => {
           const saved = await db.stores.create(newItemPayload);
           setStores((prev: CabinetStore[]) => [saved as any, ...prev]);
         } else if (displayType.includes('order') || displayType.includes('quote') || displayType.includes('invoice') || displayType.includes('sale')) {
+          // Validate stock before saving
+          for (const lineItem of newItemPayload.lineItems || []) {
+            const invItem = inventory.find((i: InventoryItem) => i.id === lineItem.productId);
+            if (invItem && invItem.trackStock && invItem.quantity < lineItem.quantity) {
+              alert(`Not enough stock for "${invItem.name}". Available: ${invItem.quantity}, requested: ${lineItem.quantity}.`);
+              return;
+            }
+          }
           const saved = await db.orders.create(newItemPayload);
           setOrders((prev: Order[]) => [saved as any, ...prev]);
+          // Deduct inventory for tracked items
+          for (const lineItem of newItemPayload.lineItems || []) {
+            const invItem = inventory.find((i: InventoryItem) => i.id === lineItem.productId);
+            if (invItem && invItem.trackStock) {
+              const newQty = Math.max(0, invItem.quantity - lineItem.quantity);
+              await db.inventory.update(invItem.id, { ...invItem, quantity: newQty });
+              setInventory((prev: InventoryItem[]) => prev.map((i: InventoryItem) => i.id === invItem.id ? { ...i, quantity: newQty } : i));
+            }
+          }
         } else if (displayType.includes('inventory')) {
           const saved = await db.inventory.create(newItemPayload);
           setInventory((prev: InventoryItem[]) => [saved as any, ...prev]);
@@ -1554,7 +1571,7 @@ const App: React.FC = () => {
        {actions.includes('view') && <button onClick={() => openModal(`View ${type}`, item)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="View"><Eye size={18} /></button>}
        {actions.includes('email') && <button onClick={() => handleSendInvoiceEmail(item, type.toLowerCase())} disabled={emailSending} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition-colors disabled:opacity-50" title="Email Invoice"><Mail size={18} /></button>}
        {actions.includes('edit') && <button onClick={() => openModal(type, item)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors" title="Edit"><Edit2 size={18} /></button>}
-       {actions.includes('delete') && currentUser.role === UserRole.ADMIN && <button onClick={() => handleDelete(type, item.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors" title="Delete"><Trash2 size={18} /></button>}
+       {actions.includes('delete') && (currentUser.role === UserRole.ADMIN || type.toLowerCase().includes('inventory')) && <button onClick={() => handleDelete(type, item.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors" title="Delete"><Trash2 size={18} /></button>}
     </div>
   );
 
@@ -1756,7 +1773,7 @@ const App: React.FC = () => {
                     <button onClick={() => setOrdersKanbanView(true)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${ordersKanbanView ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Kanban</button>
                   </div>
                 )}
-                <button onClick={() => openModal(displayLabel)} className="px-5 py-2 bg-slate-900 hover:bg-blue-600 text-white rounded-lg text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2"><Plus size={13} /> New</button>
+                <button onClick={() => openModal(displayLabel)} className="px-5 py-2 bg-slate-900 hover:bg-blue-600 text-white rounded-lg text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2"><Plus size={13} /> Add {displayLabel}</button>
               </div>
             </div>
             {showKanban ? (
@@ -1800,7 +1817,7 @@ const App: React.FC = () => {
       }
       case 'inventory': return (
         <div className="space-y-6">
-          <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-900 tracking-tighter">Inventory</h3><button onClick={() => openModal('Inventory Item')} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-black uppercase shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 tracking-widest"><Plus size={14} /> Provision Catalog</button></div>
+          <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-900 tracking-tighter">Inventory</h3><button onClick={() => openModal('Inventory Item')} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-black uppercase shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 tracking-widest"><Plus size={14} /> Add Product</button></div>
           <FilterBar query={tableSearch} setQuery={setTableSearch} filter={tableFilter} setFilter={setTableFilter} options={[{ value: 'all', label: 'Full Catalog' }, { value: 'In Stock', label: 'In Stock' }, { value: 'Low Stock', label: 'Low Stock' }, { value: 'Out of Stock', label: 'Depleted' }]} />
           <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
