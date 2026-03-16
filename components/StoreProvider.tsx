@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { CabinetStore, UserRole } from '../types';
 import { resolveDomainToStoreId, mapToCamel, supabase } from '../services/supabase';
-import { Clock, ShieldAlert, Lock, Mail, ArrowRight, Building2, Sparkles, ShieldCheck } from 'lucide-react';
+import { Clock, ShieldAlert, Lock, Mail, ArrowRight, Building2, Sparkles, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 
 interface StoreContextType {
   effectiveStoreId: string;
@@ -30,6 +30,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [error, setError] = useState<string | null>(null);
   const [isBypassMode, setIsBypassMode] = useState(false);
   const [emailError, setEmailError] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [currentUser, setCurrentUser] = useState({
     id: 'u-1',
@@ -300,13 +301,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     placeholder="Enter your password"
-                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-3xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                    className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-3xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
                     value={authPassword}
                     onChange={e => setAuthPassword(e.target.value)}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(p => !p)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
               </div>
 
