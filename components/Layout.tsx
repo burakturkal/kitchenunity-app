@@ -29,6 +29,7 @@ interface LayoutProps {
   setSelectedAdminStoreId?: (id: string) => void;
   stores?: CabinetStore[];
   leads?: Lead[];
+  activeStore?: CabinetStore | null;
 }
 
 const Layout: React.FC<LayoutProps> = ({
@@ -40,13 +41,19 @@ const Layout: React.FC<LayoutProps> = ({
   selectedAdminStoreId,
   setSelectedAdminStoreId,
   stores = [],
-  leads = []
+  leads = [],
+  activeStore
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({ sales: false });
   const [designModalOpen, setDesignModalOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [activeTab]);
 
   // Track new leads since last visit using localStorage
   const LAST_SEEN_KEY = 'ku_last_seen_leads';
@@ -117,19 +124,51 @@ const Layout: React.FC<LayoutProps> = ({
   return (
     <div className="flex h-screen bg-white overflow-hidden font-sans">
       <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} transition-all duration-500 bg-white border-r border-slate-200 flex flex-col z-30 shadow-sm relative`}>
-        <div className="p-6 flex items-center gap-3 mb-2">
-          <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/30">
-            <Building2 className="text-white" size={20} />
-          </div>
-          {isSidebarOpen && (
-            <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-500">
-              <span className="font-black text-lg tracking-tight text-slate-900 leading-none">Kitchen<span className="text-blue-600">Unity</span></span>
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">
-                {currentUser.role === UserRole.ADMIN ? 'Global Control' : 'Operations ERP'}
-              </span>
+        {(() => {
+          const logoSrc = activeStore?.logoUrl ||
+            (activeStore?.id ? localStorage.getItem(`ku_store_logo_${activeStore.id}`) : null);
+
+
+          const storeName = activeStore?.name;
+          const words = storeName ? storeName.trim().split(' ') : [];
+          const nameFirst = words.length > 1 ? words.slice(0, -1).join(' ') : '';
+          const nameLast = words.length > 0 ? words[words.length - 1] : '';
+
+          return (
+            <div className="p-6 flex items-center gap-3 mb-2">
+              <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/30">
+                <Building2 className="text-white" size={20} />
+              </div>
+              {isSidebarOpen && (
+                <div className="flex flex-col min-w-0 animate-in fade-in slide-in-from-left-2 duration-500">
+                  {storeName && currentUser.role !== UserRole.ADMIN ? (
+                    <>
+                      <span className="font-black text-sm tracking-tight text-slate-900 leading-none truncate whitespace-nowrap max-w-[160px]">
+                        {nameFirst && <>{nameFirst} </>}<span className="text-blue-600">{nameLast}</span>
+                      </span>
+                      <span className="mt-1.5 inline-flex items-center">
+                        <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest pl-3 pr-5 py-1 bg-slate-300 rounded-full">by</span>
+                        <span className="inline-flex items-center gap-0.5 px-2.5 py-1 bg-slate-900 rounded-full shadow-sm -ml-3 z-10">
+                          <span className="text-xs font-black text-white tracking-tight">Kitchen</span><span className="text-xs font-black text-blue-400 tracking-tight">Unity</span>
+                        </span>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-black text-xl tracking-tight leading-none">
+                        <span className="text-slate-900">Kitchen</span>
+                        <span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent drop-shadow-sm">Unity</span>
+                      </span>
+                      <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">
+                        {currentUser.role === UserRole.ADMIN ? 'Global Control' : 'Operations ERP'}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          );
+        })()}
 
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar">
           {filteredNavItems.map((item) => {
@@ -332,7 +371,7 @@ const Layout: React.FC<LayoutProps> = ({
            </div>
         )}
 
-        <main className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-white">
+        <main ref={mainRef} className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-white">
           <div className="max-w-[1800px] w-full mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500">
             {children}
           </div>
