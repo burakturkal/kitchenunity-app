@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "KitchenUnity Lead SMS",
+  "version": "1.0.0",
+  "description": "Auto-texts new leads from Google Voice when they come in",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "https://voice.google.com/*",
+    "https://*.supabase.co/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://voice.google.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "KitchenUnity Lead SMS",
+    "default_icon": {
+      "128": "icon.png"
+    }
+  },
+  "options_page": "options.html",
+  "icons": {
+    "128": "icon.png"
+  }
+}

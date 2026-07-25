@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>KitchenUnity Lead SMS — Settings</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8f9fa;
+      color: #1a1a1a;
+      min-height: 100vh;
+      padding: 32px 24px;
+    }
+
+    .container {
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .header-icon {
+      width: 40px;
+      height: 40px;
+      background: #1a73e8;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 20px;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    h1 span {
+      display: block;
+      font-size: 13px;
+      font-weight: 400;
+      color: #666;
+      margin-top: 2px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+
+    label .hint {
+      font-weight: 400;
+      color: #9ca3af;
+      margin-left: 4px;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      color: #1a1a1a;
+      background: white;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .placeholder-hint {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+
+    .placeholder-hint code {
+      background: #f3f4f6;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 11px;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    button {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: #1a73e8;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #1557b0;
+    }
+
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #374151;
+      border: 1px solid #d1d5db;
+    }
+
+    .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+
+    .status-msg {
+      font-size: 13px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      display: none;
+    }
+
+    .status-msg.success {
+      background: #d1fae5;
+      color: #065f46;
+      display: block;
+    }
+
+    .status-msg.error {
+      background: #fee2e2;
+      color: #991b1b;
+      display: block;
+    }
+
+    .info-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 12.5px;
+      color: #1e40af;
+      line-height: 1.5;
+    }
+
+    .info-box strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .info-box ol {
+      padding-left: 16px;
+      margin-top: 6px;
+    }
+
+    .info-box ol li {
+      margin-bottom: 3px;
+    }
+
+    code.path {
+      background: #dbeafe;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 11.5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-icon">💬</div>
+      <h1>
+        KitchenUnity Lead SMS
+        <span>Auto-text new leads from Google Voice</span>
+      </h1>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Supabase Connection</div>
+
+      <div class="field">
+        <label>Supabase URL</label>
+        <input type="url" id="supabaseUrl" placeholder="https://xxxxxxxxxxxx.supabase.co" />
+      </div>
+
+      <div class="field">
+        <label>
+          Supabase Anon Key
+          <span class="hint">— from your app's .env.local or services/supabase.ts</span>
+        </label>
+        <input type="password" id="supabaseKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+      </div>
+
+      <div class="field">
+        <label>
+          Store ID
+          <span class="hint">— UUID of your store in Supabase</span>
+        </label>
+        <input type="text" id="storeId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+        <p class="placeholder-hint">Find it in your app's URL after logging in, or ask your developer.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Message Settings</div>
+
+      <div class="field">
+        <label>Store Name <span class="hint">— used in message template</span></label>
+        <input type="text" id="storeName" placeholder="e.g. KitchenUnity Cabinets" />
+      </div>
+
+      <div class="field">
+        <label>Message Template</label>
+        <textarea id="messageTemplate" placeholder="Hi {name}, thanks for your interest in {store}! We received your info and will be in touch shortly."></textarea>
+        <p class="placeholder-hint">
+          Use <code>{name}</code> for the lead's first name and <code>{store}</code> for your store name.
+        </p>
+      </div>
+
+      <div class="field">
+        <label>Polling Interval</label>
+        <select id="pollInterval">
+          <option value="30000">Every 30 seconds</option>
+          <option value="60000">Every 1 minute</option>
+          <option value="120000">Every 2 minutes</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Test SMS</div>
+      <p style="font-size:13px;color:#6b7280;margin-bottom:14px;">
+        Send a real test text through Google Voice right now. Make sure your Google Voice tab is open first.
+      </p>
+
+      <div class="field">
+        <label>Test Phone Number</label>
+        <input type="tel" id="testPhone" placeholder="+15551234567" />
+        <p class="placeholder-hint">Enter your own number to verify it works end-to-end.</p>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-top:4px;">
+        <button class="btn-primary" id="sendTestBtn">Send Test Text</button>
+        <span class="status-msg" id="testStatusMsg"></span>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>How to find your Store ID</strong>
+      <ol>
+        <li>Open your KitchenUnity app and log in</li>
+        <li>Open DevTools (F12) → Console tab</li>
+        <li>Run: <code class="path">supabase.auth.getSession().then(r => console.log(r))</code></li>
+        <li>Or ask your developer — it's the <code class="path">store_id</code> in the stores table</li>
+      </ol>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" id="saveBtn">Save Settings</button>
+      <button class="btn-secondary" id="testBtn">Test Connection</button>
+      <span class="status-msg" id="statusMsg"></span>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

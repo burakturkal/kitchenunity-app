@@ -69,14 +69,23 @@ Deno.serve(async (req) => {
             fields['full_name'] ||
             `${fields['first_name'] || ''} ${fields['last_name'] || ''}`.trim()
 
-          await supabase.from('leads').insert({
-            store_id: storeId,
-            name: fullName || 'Unknown',
-            email: fields['email'] || '',
-            phone: fields['phone_number'] || fields['phone'] || '',
-            source: 'Facebook Lead Ad',
-            status: 'New',
-          })
+          const { error: insertErr } = await supabase.from('leads').upsert(
+            {
+              store_id: storeId,
+              facebook_leadgen_id: leadgenId,
+              name: fullName || 'Unknown',
+              email: fields['email'] || '',
+              phone: fields['phone_number'] || fields['phone'] || '',
+              source: 'Facebook Lead Ad',
+              status: 'New',
+            },
+            { onConflict: 'store_id,facebook_leadgen_id', ignoreDuplicates: true }
+          )
+          if (insertErr) {
+            console.error('Failed to insert lead:', leadgenId, insertErr)
+          } else {
+            console.log('Inserted lead:', leadgenId, fullName || 'Unknown')
+          }
         }
       }
     } catch (err) {
